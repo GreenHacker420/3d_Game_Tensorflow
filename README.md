@@ -1,4 +1,4 @@
-# arcade-game-handpose-react
+# Hand Gestures
 
 Tensorflow.js + React for detecting hand pose to be able to play games
 
