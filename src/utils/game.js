@@ -108,8 +108,10 @@ export default class Game{
     coralMaterial.diffuseColor = new Color3.FromHexString("#FF7F50");
     this.box1.material = coralMaterial;
 
-    this.box1.position.x = 5;
-    this.box1.position.y = -15;
+    // Set initial position to center of scene
+    this.box1.position.x = 0;
+    this.box1.position.y = 0;
+    this.box1.position.z = 0;
 
     this.scene.gravity = new Vector3(0, -9.81, 0);
     this.scene.collisionsEnabled = true;
@@ -152,16 +154,38 @@ export default class Game{
       
       // Handle movement only when not in scaling mode
       if (!this.isScalingMode) {
-        // Calculate movement delta
-        const deltaX = handState.position.x - this.lastHandPosition.x;
-        const deltaY = handState.position.y - this.lastHandPosition.y;
+        // Get canvas dimensions
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
 
-        // Update box position with constraints
-        const newX = this.box1.position.x + (deltaX * this.moveSpeed);
-        const newY = this.box1.position.y - (deltaY * this.moveSpeed); // Invert Y for natural movement
+        // Map webcam coordinates (640x480) to scene coordinates
+        // Adjust these values based on your scene's coordinate system
+        const sceneWidth = 100; // Total width of scene from -50 to 50
+        const sceneHeight = 80; // Total height of scene from -40 to 40
 
-        this.box1.position.x = Math.max(-50, Math.min(50, newX));
-        this.box1.position.y = Math.max(-25, Math.min(-5, newY));
+        // Calculate mapped coordinates
+        const mappedX = ((handState.position.x / 640) * sceneWidth) - (sceneWidth / 2);
+        const mappedY = ((1 - handState.position.y / 480) * sceneHeight) - (sceneHeight / 2);
+
+        // Calculate box boundaries (considering box size)
+        const boxSize = this.box1.scaling.x * 5; // 5 is the original box size
+        const boundaryOffset = boxSize / 2;
+
+        // Apply boundaries
+        const targetX = Math.max(
+          -(sceneWidth/2) + boundaryOffset,
+          Math.min(sceneWidth/2 - boundaryOffset, mappedX)
+        );
+        
+        const targetY = Math.max(
+          -(sceneHeight/2) + boundaryOffset,
+          Math.min(sceneHeight/2 - boundaryOffset, mappedY)
+        );
+
+        // Smooth movement using lerp (linear interpolation)
+        const lerpFactor = 0.1; // Adjust this value to change movement smoothness (0-1)
+        this.box1.position.x += (targetX - this.box1.position.x) * lerpFactor;
+        this.box1.position.y += (targetY - this.box1.position.y) * lerpFactor;
       }
     }
 
