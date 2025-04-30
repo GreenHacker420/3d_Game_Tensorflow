@@ -9,9 +9,11 @@ import {
   StandardMaterial,
   Texture,
   AssetsManager,
-  Mesh
+  Mesh,
+  ActionManager
  } from "babylonjs"
 import GUI from 'babylonjs-gui';
+import moonlitGolfHDRUrl from './moonlit_golf_2k.hdr?url';
 
 
 export default class Game{
@@ -21,6 +23,10 @@ export default class Game{
     this.engine = new Engine(this.canvas, true);
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color3.FromHexString("#888888");
+    
+    // Initialize keyboard input
+    this.scene.actionManager = new BABYLON.ActionManager(this.scene);
+    
     this.createScene();
     this.runEngineLoop();  
     this.boxMinSize = 3;
@@ -53,16 +59,7 @@ export default class Game{
   }
   runEngineLoop(){
     this.engine.runRenderLoop(() => {
-      if (this.back){
-        if (this.box1.position.x >= -50){
-          this.box1.position.x -= 1;
-        }
-      }
-      else{
-        if (this.box1.position.x <= 50){
-          this.box1.position.x += 1;
-        }
-      }
+      // Just render the scene - movement is handled by moveBox method
       this.scene.render();
     });
   }
@@ -82,7 +79,7 @@ export default class Game{
     
     this.skyboxMaterial = new StandardMaterial("skyBox", this.scene);
     this.skyboxMaterial.backFaceCulling = false;
-    this.skyboxMaterial.reflectionTexture = new HDRCubeTexture('src/utils/moonlit_golf_2k.hdr', this.scene, 512, false, true, false, true);
+    this.skyboxMaterial.reflectionTexture = new HDRCubeTexture(moonlitGolfHDRUrl, this.scene, 512, false, true, false, true);
     this.skyboxMaterial.reflectionTexture.coordinatesMode = Texture.SKYBOX_MODE;
     this.skyboxMaterial.disableLighting = true;
 
