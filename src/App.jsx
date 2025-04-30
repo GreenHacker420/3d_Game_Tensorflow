@@ -6,7 +6,6 @@ import { drawHand } from './utils';
 import Game from './utils/game';
 
 import './App.css'
-import { webcam } from '@tensorflow/tfjs-data';
 
 function App() {
   const webcamRef = useRef();
@@ -51,6 +50,15 @@ function App() {
     <div className="App">
       <div className="webcam-ai__container">
         {isLoading && <h1 style={{zIndex: 10, color: '#fff'}}>Initializing AI Model...</h1>}
+        <div className="instructions">
+          <h2>How to Play</h2>
+          <ul>
+            <li>✋ Open Hand: Move box forward</li>
+            <li>✊ Closed Hand: Move box backward</li>
+            <li>Make sure your hand is visible in the camera</li>
+            <li>Good lighting helps detection</li>
+          </ul>
+        </div>
         <Webcam ref={webcamRef} className="webcam"/>
         <canvas className="webcam-ai__canvas" ref={canvasRef}/>
       </div>

@@ -1,25 +1,72 @@
-body{
-  /* background-color: #222; */
+body {
+  margin: 0;
+  padding: 0;
 }
+
 .App {
   display: flex;
   position: relative;
 }
+
 .App > * {
   position: relative;
 }
-.webcam-ai__container{
+
+.webcam-ai__container {
   width: 50%;
-  
+  position: relative;
 }
-.game{
+
+.game {
   width: 50%;
 }
-.webcam-ai__container > *{
+
+.webcam-ai__container > * {
   position: absolute;
   width: 100%;
   z-index: 1;
 }
-.webcam-ai__canvas{
-  z-index : 2;
+
+.webcam-ai__canvas {
+  z-index: 2;
+}
+
+.instructions {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 15px 25px;
+  border-radius: 8px;
+  z-index: 2;
+  width: 80%;
+  max-width: 400px;
+  text-align: center;
+  backdrop-filter: blur(5px);
+}
+
+.instructions h2 {
+  margin: 0 0 10px 0;
+  font-size: 1.2em;
+  color: #4CAF50;
+}
+
+.instructions ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.instructions li {
+  margin: 8px 0;
+  font-size: 0.95em;
+}
+
+.instructions li:before {
+  content: "•";
+  color: #4CAF50;
+  font-weight: bold;
+  margin-right: 8px;
 }
