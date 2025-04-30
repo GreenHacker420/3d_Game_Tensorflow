@@ -23,6 +23,13 @@ export default class Game{
     this.scene.clearColor = new Color3.FromHexString("#888888");
     this.createScene();
     this.runEngineLoop();  
+    this.boxMinSize = 3;
+    this.boxMaxSize = 8;
+    this.moveSpeed = 0.5;
+    this.lastHandPosition = null;
+    this.isScalingMode = false;
+    this.initialFingerSpread = 0;
+    this.initialScale = this.boxMinSize;
   }
 
   createScene(){
@@ -95,34 +102,70 @@ export default class Game{
   }
 
   generateMeshes(){
-    this.box1 =  new Mesh.CreateBox("Box1", 5, this.scene);
-    // const ground = new Mesh.CreateGround("ground1", 400, 400, 1, this.scene);
+    this.box1 = new Mesh.CreateBox("Box1", 5, this.scene);
     
-    const whiteMaterial = new StandardMaterial("box1_mat",this.scene);
-
     const coralMaterial = new StandardMaterial("coral_mat", this.scene);
-    whiteMaterial.diffuseColor = new Color3.White();
-    whiteMaterial.alpha = 1;
     coralMaterial.diffuseColor = new Color3.FromHexString("#FF7F50");
-    whiteMaterial.alpha = 1;
-
-    // ground.material = whiteMaterial;
     this.box1.material = coralMaterial;
 
-    // console.log(ground.material);
-
-    // ground.checkCollisions=true;
-    // ground.receiveShadows = true;
-    this.box1.position.x=5;
-    this.box1.position.y=-15;
-    // ground.position.y =-16;
+    this.box1.position.x = 5;
+    this.box1.position.y = -15;
 
     this.scene.gravity = new Vector3(0, -9.81, 0);
     this.scene.collisionsEnabled = true;
-
   }
 
-  moveBox(back){
-    this.back = back;
+  moveBox(handState) {
+    if (!handState || !handState.isTracking || !this.box1) return;
+
+    // Initialize last position if not set
+    if (!this.lastHandPosition && handState.isTracking) {
+      this.lastHandPosition = { ...handState.position };
+      return;
+    }
+
+    // Handle scaling mode
+    if (handState.isPinched) {
+      if (!this.isScalingMode) {
+        // Enter scaling mode
+        this.isScalingMode = true;
+        this.initialFingerSpread = handState.fingerSpread;
+        this.initialScale = this.box1.scaling.x;
+      } else {
+        // Update scale
+        const scaleDelta = (handState.fingerSpread - this.initialFingerSpread) / 100;
+        const newScale = Math.max(
+          this.boxMinSize,
+          Math.min(this.boxMaxSize, this.initialScale + scaleDelta)
+        );
+        
+        this.box1.scaling.x = newScale;
+        this.box1.scaling.y = newScale;
+        this.box1.scaling.z = newScale;
+      }
+    } else {
+      // Exit scaling mode
+      if (this.isScalingMode) {
+        this.isScalingMode = false;
+        this.lastHandPosition = { ...handState.position };
+      }
+      
+      // Handle movement only when not in scaling mode
+      if (!this.isScalingMode) {
+        // Calculate movement delta
+        const deltaX = handState.position.x - this.lastHandPosition.x;
+        const deltaY = handState.position.y - this.lastHandPosition.y;
+
+        // Update box position with constraints
+        const newX = this.box1.position.x + (deltaX * this.moveSpeed);
+        const newY = this.box1.position.y - (deltaY * this.moveSpeed); // Invert Y for natural movement
+
+        this.box1.position.x = Math.max(-50, Math.min(50, newX));
+        this.box1.position.y = Math.max(-25, Math.min(-5, newY));
+      }
+    }
+
+    // Update last position
+    this.lastHandPosition = { ...handState.position };
   }
 }

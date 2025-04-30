@@ -26,17 +26,14 @@ function App() {
     }, 50)
   }
   const detect = async (net) => {
-    if (webcamRef.current &&  webcamRef.current.video.readyState === 4){
+    if (webcamRef.current && webcamRef.current.video.readyState === 4) {
       canvasRef.current.width = webcamRef.current.video.videoWidth;
       canvasRef.current.height = webcamRef.current.video.videoHeight;
-      const hand = await net.estimateHands(webcamRef.current.video);
       
-      //either "closed" or "opened"
-      const pose = drawHand(hand, canvasRef.current.getContext('2d'));
-      if (pose === "OPENED"){
-        gameRef.current.moveBox(true);
-      }
-      else gameRef.current.moveBox(false);
+      const hand = await net.estimateHands(webcamRef.current.video);
+      const handState = drawHand(hand, canvasRef.current.getContext('2d'));
+      
+      gameRef.current.moveBox(handState);
     }
   }
   useEffect(() => {
@@ -47,25 +44,29 @@ function App() {
     initializeHandpose();
   }, [])
   return (
-    <div className="App">
-      <div className="webcam-ai__container">
-        {isLoading && <h1 style={{zIndex: 10, color: '#fff'}}>Initializing AI Model...</h1>}
+    <>
+      <div className="App">
+        <div className="webcam-ai__container">
+          {isLoading && <h1 style={{zIndex: 10, color: '#fff'}}>Initializing AI Model...</h1>}
+          <Webcam ref={webcamRef} className="webcam"/>
+          <canvas className="webcam-ai__canvas" ref={canvasRef}/>
+        </div>
+        <div className="game">
+          <canvas className="game__canvas" ref={gameCanvasRef}/>
+        </div>
+      </div>
+      <footer className="footer">
         <div className="instructions">
-          <h2>How to Play</h2>
+          <h2>Hand Controls</h2>
           <ul>
-            <li>✋ Open Hand: Move box forward</li>
-            <li>✊ Closed Hand: Move box backward</li>
-            <li>Make sure your hand is visible in the camera</li>
-            <li>Good lighting helps detection</li>
+            <li><span className="emoji">👆</span> Move Hand: Control box position</li>
+            <li><span className="emoji">🤏</span> Pinch: Enter resize mode</li>
+            <li><span className="emoji">✋</span> While Pinched: Move hand apart/together to resize</li>
+            <li><span className="emoji">👋</span> Release Pinch: Return to movement mode</li>
           </ul>
         </div>
-        <Webcam ref={webcamRef} className="webcam"/>
-        <canvas className="webcam-ai__canvas" ref={canvasRef}/>
-      </div>
-      <div className="game">
-        <canvas className="game__canvas" ref={gameCanvasRef}/>
-      </div>
-    </div>
+      </footer>
+    </>
   )
 }
 
