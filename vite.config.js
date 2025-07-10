@@ -1,11 +1,19 @@
 import { defineConfig } from 'vite'
-import reactRefresh from '@vitejs/plugin-react-refresh'
+import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [reactRefresh()],
+  plugins: [react()],
   assetsInclude: ['**/*.hdr'],
   build: {
     assetsInlineLimit: 0,
+    target: 'esnext'
+  },
+  server: {
+    port: 3002,
+    host: true
+  },
+  optimizeDeps: {
+    include: ['@babylonjs/core', '@babylonjs/gui', '@babylonjs/materials']
   }
 })
