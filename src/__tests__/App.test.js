@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from '../App.jsx';
 
@@ -22,7 +21,14 @@ jest.mock('../hooks/useHandDetection.js', () => ({
       frameCount: 0
     },
     initialize: jest.fn(),
-    startDetection: jest.fn()
+    startDetection: jest.fn(),
+    switchTrackingMode: jest.fn(),
+    startCalibration: jest.fn(),
+    get3DModeStatus: jest.fn(() => ({
+      isAvailable: true,
+      isCalibrated: false,
+      calibrationProgress: 0
+    }))
   })
 }));
 
@@ -45,10 +51,12 @@ jest.mock('../hooks/use3DScene.js', () => ({
 
 // Mock react-webcam
 jest.mock('react-webcam', () => {
-  return React.forwardRef((props, ref) => (
-    <div data-testid="webcam-mock" ref={ref}>
-      Webcam Mock
-    </div>
+  const mockReact = require('react');
+  return mockReact.forwardRef((_props, ref) => (
+    mockReact.createElement('div', {
+      'data-testid': 'webcam-mock',
+      ref: ref
+    }, 'Webcam Mock')
   ));
 });
 
@@ -67,10 +75,12 @@ describe('App Component', () => {
 
   test('has main content layout', () => {
     render(<App />);
-    const app = document.querySelector('.app');
-    expect(app).toBeInTheDocument();
-    
-    const mainContent = document.querySelector('.main-content');
-    expect(mainContent).toBeInTheDocument();
+    // Check for the main container with proper classes
+    const mainContainer = document.querySelector('.min-h-screen');
+    expect(mainContainer).toBeInTheDocument();
+
+    // Check for the flex layout container
+    const flexContainer = document.querySelector('.flex.h-screen');
+    expect(flexContainer).toBeInTheDocument();
   });
 });

@@ -1,8 +1,28 @@
 // Integration tests for the 3D Hand Pose Game
-import { audioManager } from '../utils/AudioManager';
 import { GestureSequenceDetector, GESTURE_COMBOS } from '../utils/GestureSequence';
 import { GameModeManager, GAME_MODES } from '../utils/GameModes';
 import { GESTURE_TYPES } from '../utils/gestureRecognition';
+
+// Mock AudioManager to avoid browser API issues in tests
+jest.mock('../utils/AudioManager', () => ({
+  audioManager: {
+    sounds: new Map([
+      ['success', { play: jest.fn() }],
+      ['error', jest.fn()],
+      ['gesture', jest.fn()]
+    ]),
+    isEnabled: false,
+    audioContext: null,
+    masterGain: null,
+    playGestureSound: jest.fn(),
+    playSound: jest.fn(),
+    setVolume: jest.fn(),
+    enable: jest.fn(),
+    disable: jest.fn()
+  }
+}));
+
+import { audioManager } from '../utils/AudioManager';
 
 describe('3D Hand Pose Game Integration Tests', () => {
   

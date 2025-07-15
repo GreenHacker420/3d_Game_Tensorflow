@@ -54,7 +54,7 @@ const ThreeDTrackingHUD = ({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <div className="bg-dark-800/90 backdrop-blur-sm border border-dark-600 rounded-lg p-2 cursor-pointer">
+        <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-600 rounded-lg p-2 cursor-pointer">
           <div className="flex items-center gap-2">
             <span className="text-lg">{is3DMode ? '🎯' : '👋'}</span>
             {is3DMode && handState?.position && (
@@ -75,7 +75,7 @@ const ThreeDTrackingHUD = ({
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.3 }}
     >
-      <div className="bg-dark-800/90 backdrop-blur-sm border border-dark-600 rounded-lg p-4 min-w-64">
+      <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-600 rounded-lg p-4 min-w-64">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">

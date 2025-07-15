@@ -29,13 +29,8 @@ export class HandDetectionEngine {
       // Configure TensorFlow.js for optimal performance
       await tf.ready();
       
-      // Load the handpose model with adaptive parameters
-      this.model = await handpose.load({
-        modelUrl: undefined, // Use default model
-        detectionConfidence: 0.7, // Lowered for better detection in various conditions
-        iouThreshold: 0.3,
-        scoreThreshold: 0.65 // Lowered for better low-light performance
-      });
+      // Load the handpose model (using default parameters as custom parameters may not be supported)
+      this.model = await handpose.load();
 
       // Initialize adaptive parameters
       this.adaptiveParams = {
@@ -151,7 +146,6 @@ export class HandDetectionEngine {
     // Calculate palm size using key landmarks
     const wrist = landmarks[0];           // Wrist
     const thumbBase = landmarks[1];       // Thumb base
-    const indexBase = landmarks[5];       // Index finger base
     const middleBase = landmarks[9];      // Middle finger base
     const pinkyBase = landmarks[17];      // Pinky base
 
@@ -299,6 +293,137 @@ export class HandDetectionEngine {
   }
 
   /**
+   * Analyze lighting conditions from video element
+   * @param {HTMLVideoElement} videoElement - Video element to analyze
+   * @returns {Object} Lighting analysis result
+   */
+  analyzeLightingConditions(videoElement) {
+    try {
+      // Create a temporary canvas to analyze the video frame
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 100; // Small sample size for performance
+      canvas.height = 75;
+
+      // Draw current video frame to canvas
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      // Get image data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Calculate average brightness
+      let totalBrightness = 0;
+      let pixelCount = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Calculate luminance using standard formula
+        const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+        totalBrightness += brightness;
+        pixelCount++;
+      }
+
+      const avgBrightness = totalBrightness / pixelCount;
+
+      // Categorize lighting condition
+      let condition = 'normal';
+      if (avgBrightness < 80) {
+        condition = 'low';
+      } else if (avgBrightness > 180) {
+        condition = 'high';
+      }
+
+      return {
+        brightness: avgBrightness,
+        condition: condition,
+        quality: Math.min(1, avgBrightness / 128) // Normalized quality score
+      };
+    } catch (error) {
+      console.warn('Failed to analyze lighting conditions:', error);
+      return {
+        brightness: 128,
+        condition: 'normal',
+        quality: 1
+      };
+    }
+  }
+
+  /**
+   * Adapt detection parameters based on lighting conditions
+   * @param {Object} lightingCondition - Lighting analysis result
+   */
+  adaptDetectionParameters(lightingCondition) {
+    if (!this.adaptiveParams) return;
+
+    const { condition, quality } = lightingCondition;
+
+    // Adjust confidence thresholds based on lighting
+    switch (condition) {
+      case 'low':
+        this.adaptiveParams.lightingBoost = -0.1; // Lower threshold for low light
+        break;
+      case 'high':
+        this.adaptiveParams.lightingBoost = 0.05; // Slightly higher threshold for bright light
+        break;
+      default:
+        this.adaptiveParams.lightingBoost = 0.0;
+    }
+
+    // Update stability filter based on lighting quality
+    this.adaptiveParams.stabilityFilter = Math.max(0.5, quality * 0.8);
+  }
+
+  /**
+   * Apply stability filtering to predictions
+   * @param {Array} predictions - Raw predictions from model
+   * @returns {Array} Filtered predictions
+   */
+  applyStabilityFilter(predictions) {
+    if (!this.adaptiveParams || !this.adaptiveParams.frameHistory) {
+      return predictions;
+    }
+
+    // Add current predictions to history
+    this.adaptiveParams.frameHistory.push(predictions);
+
+    // Keep only recent history
+    if (this.adaptiveParams.frameHistory.length > this.adaptiveParams.maxHistorySize) {
+      this.adaptiveParams.frameHistory.shift();
+    }
+
+    // If we don't have enough history, return current predictions
+    if (this.adaptiveParams.frameHistory.length < 3) {
+      return predictions;
+    }
+
+    // Apply temporal smoothing
+    if (predictions.length === 0) {
+      // No current detection - check if we had consistent detections recently
+      const recentDetections = this.adaptiveParams.frameHistory.slice(-3);
+      const hasConsistentDetections = recentDetections.every(p => p.length > 0);
+
+      if (hasConsistentDetections) {
+        // Return the most recent detection to maintain continuity
+        return this.adaptiveParams.frameHistory[this.adaptiveParams.frameHistory.length - 2] || [];
+      }
+    } else {
+      // We have a detection - apply confidence filtering
+      const filteredPredictions = predictions.filter(prediction => {
+        const adjustedThreshold = this.adaptiveParams.baseConfidence + this.adaptiveParams.lightingBoost;
+        return prediction.handInViewConfidence >= adjustedThreshold;
+      });
+
+      return filteredPredictions;
+    }
+
+    return predictions;
+  }
+
+  /**
    * Dispose resources
    */
   dispose() {
@@ -310,6 +435,12 @@ export class HandDetectionEngine {
     this.isLoading = false;
     this.onStateChange = null;
     this.onError = null;
+
+    // Clear adaptive parameters
+    if (this.adaptiveParams) {
+      this.adaptiveParams.frameHistory = [];
+      this.adaptiveParams = null;
+    }
   }
 }
 

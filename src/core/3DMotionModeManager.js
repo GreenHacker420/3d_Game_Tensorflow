@@ -218,7 +218,7 @@ export class ThreeDMotionModeManager {
    * @param {number} startTime - Processing start time
    */
   updatePerformanceMetrics(startTime) {
-    const now = performance.now();
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const processingTime = now - startTime;
     
     // Update latency

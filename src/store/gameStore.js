@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { GESTURE_TYPES } from '../utils/gestureRecognition';
+import { GESTURE_TYPES } from '../core/GestureClassifier.js';
 
 // Game State Management using Zustand with enhanced features
 const useGameStore = create(

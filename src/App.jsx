@@ -1,6 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { gsap } from 'gsap';
 import HandTracker from './components/HandTracker.jsx';
 import Scene3D from './components/Scene3D.jsx';
 import PerformanceHUD from './components/PerformanceHUD.jsx';
@@ -24,7 +23,7 @@ function App() {
   // 3D Motion Mode state
   const [currentTrackingMode, setCurrentTrackingMode] = useState(TRACKING_MODES.MODE_2D);
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
-  const [show3DTrackingHUD, setShow3DTrackingHUD] = useState(true);
+  const [show3DTrackingHUD] = useState(true);
   const [trackingHUDMinimized, setTrackingHUDMinimized] = useState(false);
 
   // Custom hooks for hand detection and 3D scene
@@ -37,8 +36,7 @@ function App() {
     startDetection,
     switchTrackingMode,
     startCalibration,
-    get3DModeStatus,
-    resetCalibration
+    get3DModeStatus
   } = useHandDetection();
 
   const {
@@ -147,8 +145,7 @@ function App() {
     }
   }, [handState, updateCubeWithHand, currentTrackingMode]);
 
-  const isLoading = handLoading || sceneLoading;
-  const error = handError || sceneError;
+
 
   // Determine status for indicators
   const getHandDetectionStatus = () => {
@@ -168,7 +165,7 @@ function App() {
   return (
     <ErrorBoundary>
       <motion.div
-        className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-800 text-white overflow-hidden"
+        className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 text-white overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}

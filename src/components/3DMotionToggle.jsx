@@ -157,7 +157,7 @@ const ThreeDMotionToggle = ({
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            className="mt-2 p-3 rounded-lg bg-dark-800/90 border border-dark-600 backdrop-blur-sm"
+            className="mt-2 p-3 rounded-lg bg-gray-800/90 border border-gray-600 backdrop-blur-sm"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -244,7 +244,7 @@ const ThreeDMotionToggle = ({
       <AnimatePresence>
         {showTooltip && !isExpanded && (
           <motion.div
-            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-dark-900 text-white text-xs rounded border border-dark-600 whitespace-nowrap z-50"
+            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded border border-gray-600 whitespace-nowrap z-50"
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
@@ -254,7 +254,7 @@ const ThreeDMotionToggle = ({
               ? `3D Motion Mode ${!isCalibrated ? '(Needs Calibration)' : `(${Math.round(qualityScore * 100)}%)`}`
               : '2D Tracking Mode - Click to enable 3D'
             }
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-dark-900" />
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900" />
           </motion.div>
         )}
       </AnimatePresence>

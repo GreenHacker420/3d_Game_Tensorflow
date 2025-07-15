@@ -32,7 +32,7 @@ export class PerformanceMonitor {
     }
 
     this.isMonitoring = true;
-    this.startTime = performance.now();
+    this.startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     this.metrics.lastFrameTime = this.startTime;
     
     console.log('📊 Performance monitoring started');
@@ -54,7 +54,7 @@ export class PerformanceMonitor {
       return;
     }
 
-    const currentTime = performance.now();
+    const currentTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     this.metrics.frameCount++;
 
     // Add frame time to history
@@ -142,7 +142,7 @@ export class PerformanceMonitor {
    * @returns {Object} Detailed statistics
    */
   getDetailedStats() {
-    const uptime = this.isMonitoring ? performance.now() - this.startTime : 0;
+    const uptime = this.isMonitoring ? ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - this.startTime : 0;
     
     return {
       ...this.metrics,
@@ -209,7 +209,7 @@ export class PerformanceMonitor {
 
     this.frameHistory = [];
     this.latencyHistory = [];
-    this.startTime = performance.now();
+    this.startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     this.metrics.lastFrameTime = this.startTime;
 
     console.log('🔄 Performance metrics reset');

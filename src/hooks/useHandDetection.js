@@ -113,8 +113,15 @@ export const useHandDetection = () => {
         return;
       }
 
+      // Check if detection engine is initialized
+      if (!detectionEngineRef.current || !detectionEngineRef.current.isInitialized) {
+        // Wait a bit and try again
+        setTimeout(detectLoop, 100);
+        return;
+      }
+
       try {
-        const startTime = performance.now();
+        const startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
         // Detect hands
         const predictions = await detectionEngineRef.current.detectHands(videoElement);
@@ -145,7 +152,7 @@ export const useHandDetection = () => {
         }
 
         // Record performance
-        const endTime = performance.now();
+        const endTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         const latency = endTime - startTime;
         
         performanceMonitorRef.current.recordFrame();

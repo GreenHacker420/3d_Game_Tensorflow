@@ -33,7 +33,7 @@ const StatusIndicator = ({
   const getStatusClass = (status) => {
     const classMap = {
       'loading': 'text-blue-400',
-      'ready': 'text-accent-400',
+      'ready': 'text-green-400',
       'error': 'text-red-400',
       'waiting': 'text-yellow-400'
     };
@@ -59,7 +59,7 @@ const StatusIndicator = ({
             scale: handDetectionStatus === 'ready' ? [1, 1.2, 1] : 1,
             boxShadow: handDetectionStatus === 'ready' ?
               ['0 0 0px rgba(34, 197, 94, 0.5)', '0 0 10px rgba(34, 197, 94, 0.8)', '0 0 0px rgba(34, 197, 94, 0.5)'] :
-              'none'
+              '0 0 0px rgba(34, 197, 94, 0)'
           }}
           transition={{
             duration: 2,
@@ -83,7 +83,7 @@ const StatusIndicator = ({
             scale: sceneStatus === 'ready' ? [1, 1.2, 1] : 1,
             boxShadow: sceneStatus === 'ready' ?
               ['0 0 0px rgba(34, 197, 94, 0.5)', '0 0 10px rgba(34, 197, 94, 0.8)', '0 0 0px rgba(34, 197, 94, 0.5)'] :
-              'none'
+              '0 0 0px rgba(34, 197, 94, 0)'
           }}
           transition={{
             duration: 2,

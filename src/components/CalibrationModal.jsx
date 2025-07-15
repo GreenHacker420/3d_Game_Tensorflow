@@ -156,7 +156,7 @@ const CalibrationModal = ({
         onClick={onClose}
       >
         <motion.div
-          className="bg-dark-800 rounded-xl border border-dark-600 p-6 max-w-md w-full mx-4 shadow-2xl"
+          className="bg-gray-800 rounded-xl border border-gray-600 p-6 max-w-md w-full mx-4 shadow-2xl"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
