@@ -32,6 +32,9 @@ export default class Game{
 
       this.createScene();
       this.runEngineLoop();
+
+      // Setup WebGL error handling
+      this.setupWebGLErrorHandling();
     } catch (error) {
       console.error("Error initializing Game:", error);
       throw error;
@@ -521,9 +524,141 @@ export default class Game{
     return null;
   }
 
+  // Setup WebGL error handling
+  setupWebGLErrorHandling() {
+    if (!this.canvas || !this.engine) return;
+
+    // Handle WebGL context lost
+    this.canvas.addEventListener('webglcontextlost', (event) => {
+      console.warn('🔥 WebGL context lost');
+      event.preventDefault();
+      this.handleWebGLContextLost();
+    });
+
+    // Handle WebGL context restored
+    this.canvas.addEventListener('webglcontextrestored', (event) => {
+      console.log('🔄 WebGL context restored');
+      this.handleWebGLContextRestored();
+    });
+
+    // Monitor WebGL errors
+    this.setupWebGLErrorMonitoring();
+  }
+
+  handleWebGLContextLost() {
+    // Stop render loop
+    this.engine.stopRenderLoop();
+
+    // Mark as context lost
+    this.isContextLost = true;
+
+    // Notify user
+    if (window.useGameStore) {
+      window.useGameStore.getState().addError('WebGL context lost. The 3D scene will be restored automatically.');
+    }
+  }
+
+  handleWebGLContextRestored() {
+    try {
+      // Recreate the scene
+      this.scene = new Scene(this.engine);
+      this.scene.clearColor = Color3.FromHexString("#888888");
+      this.createScene();
+
+      // Restart render loop
+      this.runEngineLoop();
+
+      // Mark as restored
+      this.isContextLost = false;
+
+      console.log('✅ WebGL context and scene restored');
+    } catch (error) {
+      console.error('❌ Failed to restore WebGL context:', error);
+    }
+  }
+
+  setupWebGLErrorMonitoring() {
+    // Wrap WebGL calls to catch errors
+    const gl = this.engine._gl;
+    if (!gl) return;
+
+    const originalGetError = gl.getError.bind(gl);
+    gl.getError = () => {
+      const error = originalGetError();
+      if (error !== gl.NO_ERROR) {
+        console.warn('WebGL Error:', this.getWebGLErrorString(error));
+      }
+      return error;
+    };
+  }
+
+  getWebGLErrorString(error) {
+    const gl = this.engine._gl;
+    if (!gl) return 'Unknown error';
+
+    switch (error) {
+      case gl.INVALID_ENUM: return 'INVALID_ENUM';
+      case gl.INVALID_VALUE: return 'INVALID_VALUE';
+      case gl.INVALID_OPERATION: return 'INVALID_OPERATION';
+      case gl.OUT_OF_MEMORY: return 'OUT_OF_MEMORY';
+      case gl.CONTEXT_LOST_WEBGL: return 'CONTEXT_LOST_WEBGL';
+      default: return `Unknown error (${error})`;
+    }
+  }
+
+  handleWebGLError(error) {
+    console.error('🔥 WebGL Error in render loop:', error);
+
+    // Try to recover
+    if (error.message.includes('uniformMatrix4fv')) {
+      console.log('🔄 Attempting to recover from uniformMatrix4fv error...');
+
+      // Dispose problematic objects
+      if (this.objectManager) {
+        this.objectManager.dispose();
+        this.objectManager = null;
+      }
+
+      // Recreate object manager
+      setTimeout(() => {
+        try {
+          this.objectManager = new ObjectManager(this.scene);
+          console.log('✅ ObjectManager recreated after WebGL error');
+        } catch (recreateError) {
+          console.error('❌ Failed to recreate ObjectManager:', recreateError);
+        }
+      }, 1000);
+    }
+  }
+
   dispose() {
+    this.isDisposed = true;
+
     if (this.objectManager) {
       this.objectManager.dispose();
     }
+
+    // Stop render loop
+    if (this.engine) {
+      this.engine.stopRenderLoop();
+    }
+
+    // Dispose scene
+    if (this.scene) {
+      this.scene.dispose();
+    }
+
+    // Dispose engine
+    if (this.engine) {
+      this.engine.dispose();
+    }
+
+    // Remove event listeners
+    if (this.canvas) {
+      this.canvas.removeEventListener('webglcontextlost', this.handleWebGLContextLost);
+      this.canvas.removeEventListener('webglcontextrestored', this.handleWebGLContextRestored);
+    }
+
+    console.log('🗑️ Game disposed successfully');
   }
 }

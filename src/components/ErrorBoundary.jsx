@@ -3,7 +3,12 @@ import React from 'react';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      errorType: 'unknown'
+    };
   }
 
   static getDerivedStateFromError(error) {
@@ -11,33 +16,97 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    // Categorize error types for better user feedback
+    let errorType = 'unknown';
+    if (error.message?.includes('WebGL') || error.message?.includes('uniformMatrix4fv')) {
+      errorType = 'webgl';
+    } else if (error.message?.includes('TensorFlow') || error.message?.includes('handpose')) {
+      errorType = 'tensorflow';
+    } else if (error.message?.includes('Babylon') || error.message?.includes('scene')) {
+      errorType = 'babylon';
+    } else if (error.message?.includes('webcam') || error.message?.includes('camera')) {
+      errorType = 'camera';
+    }
+
     this.setState({
       error: error,
-      errorInfo: errorInfo
+      errorInfo: errorInfo,
+      errorType: errorType
     });
-    
+
     // Log error to console for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+    // Send error to analytics if available
+    if (window.gtag) {
+      window.gtag('event', 'exception', {
+        description: error.toString(),
+        fatal: true
+      });
+    }
+  }
+
+  getErrorMessage() {
+    const { errorType } = this.state;
+    const messages = {
+      webgl: {
+        title: '🎮 Graphics Error',
+        description: 'There was an issue with 3D graphics rendering. This might be due to outdated graphics drivers or browser compatibility.',
+        suggestions: ['Update your graphics drivers', 'Try a different browser (Chrome/Firefox)', 'Enable hardware acceleration in browser settings']
+      },
+      tensorflow: {
+        title: '🤖 AI Model Error',
+        description: 'The hand tracking AI model failed to load or process data.',
+        suggestions: ['Check your internet connection', 'Ensure webcam permissions are granted', 'Try refreshing the page']
+      },
+      babylon: {
+        title: '🌐 3D Scene Error',
+        description: 'The 3D scene failed to initialize or render properly.',
+        suggestions: ['Check WebGL support in your browser', 'Close other tabs to free up memory', 'Try lowering graphics quality']
+      },
+      camera: {
+        title: '📹 Camera Error',
+        description: 'Unable to access or process webcam feed.',
+        suggestions: ['Grant camera permissions', 'Check if camera is being used by another app', 'Try refreshing the page']
+      },
+      unknown: {
+        title: '🚨 Unexpected Error',
+        description: 'The 3D Hand Pose Game encountered an unexpected error.',
+        suggestions: ['Try refreshing the page', 'Clear browser cache', 'Check browser console for details']
+      }
+    };
+    return messages[errorType] || messages.unknown;
   }
 
   render() {
     if (this.state.hasError) {
+      const errorInfo = this.getErrorMessage();
+
       return (
         <div className="error-boundary">
           <div className="error-content">
-            <h1>🚨 Something went wrong</h1>
-            <p>The 3D Hand Pose Game encountered an unexpected error.</p>
-            
+            <h1>{errorInfo.title}</h1>
+            <p>{errorInfo.description}</p>
+
+            <div className="error-suggestions">
+              <h3>💡 Try these solutions:</h3>
+              <ul>
+                {errorInfo.suggestions.map((suggestion, index) => (
+                  <li key={index}>{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+
             <div className="error-actions">
-              <button 
+              <button
                 onClick={() => window.location.reload()}
                 className="error-btn primary"
               >
                 🔄 Reload Game
               </button>
-              
-              <button 
-                onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+
+              <button
+                onClick={() => this.setState({ hasError: false, error: null, errorInfo: null, errorType: 'unknown' })}
                 className="error-btn secondary"
               >
                 🔧 Try Again
@@ -58,7 +127,7 @@ class ErrorBoundary extends React.Component {
             )}
           </div>
           
-          <style jsx>{`
+          <style>{`
             .error-boundary {
               position: fixed;
               top: 0;

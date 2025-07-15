@@ -1,345 +1,217 @@
-/* Modern 3D Hand Pose Game Styles */
-* {
-  box-sizing: border-box;
-}
+/* Import Tailwind CSS */
+@import './styles/tailwind.css';
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
-  color: white;
-  overflow: hidden;
-}
-
+/* Minimalistic 3D Hand Pose Game - Custom Styles */
 #root {
   height: 100vh;
   width: 100vw;
 }
 
 /* Main App Container */
-.App {
+.app {
   display: flex;
-  position: relative;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #0f0f0f 0%, #1f1f1f 100%);
-}
-
-.App > * {
-  position: relative;
-}
-
-/* Webcam Container */
-.webcam-ai__container {
-  width: 50%;
-  position: relative;
-  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-  border-right: 2px solid rgba(76, 175, 80, 0.3);
-  overflow: hidden;
-}
-
-.webcam-ai__container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
-  z-index: 1;
-  pointer-events: none;
-}
-
-.webcam-ai__container > * {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-}
-
-.webcam {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: contrast(1.1) brightness(1.05);
-}
-
-.webcam-ai__canvas {
-  z-index: 3;
-  width: 100%;
-  height: 100%;
-}
-
-/* Game Container */
-.game {
-  width: 50%;
-  position: relative;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-  overflow: hidden;
 }
 
-.game::before {
-  content: '';
+/* Main Content Layout */
+.main-content {
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  padding: 16px;
+}
+
+/* Hand Tracker Container */
+.hand-tracker-container {
+  width: 320px;
+  height: 240px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+/* Scene Container */
+.scene-container {
+  flex: 1;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.main-scene {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scene Loading/Error Overlays */
+.scene-loading,
+.scene-error {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at center, transparent 0%, rgba(76, 175, 80, 0.05) 100%);
-  z-index: 1;
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10;
 }
 
-.game__canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  z-index: 2;
-  position: relative;
+.scene-loading {
+  color: white;
 }
 
-/* Enhanced Scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.scene-error {
+  color: #ff6b6b;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #333;
+  border-top: 3px solid #00ff00;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
 }
 
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #4CAF50, #45a049);
-  border-radius: 4px;
-  transition: background 0.3s ease;
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #5CBF60, #4CAF50);
+/* Instructions */
+.instructions {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
 }
 
-/* Smooth Transitions */
-button, .control-btn, .instruction-item, .object-item {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.instruction-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
-/* Focus States */
-button:focus,
-.control-btn:focus {
-  outline: 2px solid #4CAF50;
-  outline-offset: 2px;
-}
-
-/* Loading States */
-.loading-state {
-  opacity: 0.6;
-  pointer-events: none;
-  filter: grayscale(0.5);
-}
-
-/* Error States */
-.error-state {
-  border-color: #ff4444 !important;
-  background: rgba(255, 68, 68, 0.1) !important;
-}
-
-/* Success States */
-.success-state {
-  border-color: #4CAF50 !important;
-  background: rgba(76, 175, 80, 0.1) !important;
+.gesture-icon {
+  font-size: 18px;
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
-  .App {
-    flex-direction: column;
-  }
-  
-  .webcam-ai__container,
-  .game {
-    width: 100%;
-    height: 50vh;
-  }
-  
-  .webcam-ai__container {
-    border-right: none;
-    border-bottom: 2px solid rgba(76, 175, 80, 0.3);
-  }
-}
-
 @media (max-width: 768px) {
-  .webcam-ai__container,
-  .game {
-    height: 50vh;
+  .main-content {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .hand-tracker-container {
+    width: 100%;
+    height: 180px;
+  }
+
+  .scene-container {
+    height: 300px;
+  }
+
+  .instructions {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .instruction-item {
+    gap: 6px;
+  }
+
+  .gesture-icon {
+    font-size: 16px;
   }
 }
 
 @media (max-width: 480px) {
-  .webcam-ai__container,
-  .game {
-    height: 45vh;
+  .main-content {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .hand-tracker-container {
+    height: 150px;
+  }
+
+  .scene-container {
+    height: 250px;
+  }
+
+  .instructions {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    padding: 6px 12px;
   }
 }
 
-/* High DPI Displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .webcam {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-  }
+/* Focus and Accessibility */
+button:focus,
+canvas:focus {
+  outline: 2px solid rgba(0, 255, 0, 0.5);
+  outline-offset: 2px;
 }
 
-/* Dark Mode Enhancements */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2a2a2a 100%);
-  }
+/* Smooth Transitions */
+.hand-tracker-container,
+.scene-container,
+.instructions {
+  transition: all 0.3s ease;
 }
 
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* Print Styles */
-@media print {
-  .App {
-    display: none;
-  }
-}
-
-/* Performance Optimizations */
-.webcam,
-.webcam-ai__canvas,
-.game__canvas {
-  will-change: transform;
-  transform: translateZ(0);
-}
-
-/* Accessibility Improvements */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* High Contrast Mode */
+/* High Contrast Mode Support */
 @media (prefers-contrast: high) {
-  .hand-status-card,
-  .objects-status,
-  .gesture-instructions,
-  .object-info-panel {
-    border-width: 3px;
-    background: rgba(0, 0, 0, 0.95);
+  .app {
+    background: #000;
+  }
+  
+  .hand-tracker-container,
+  .scene-container {
+    border-color: #00ff00;
+    border-width: 2px;
+  }
+  
+  .instructions {
+    background: #000;
+    border-color: #00ff00;
+    border-width: 2px;
   }
 }
 
-/* Animation Classes */
-.fade-in {
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-.slide-in-left {
-  animation: slideInLeft 0.5s ease-out;
-}
-
-.slide-in-right {
-  animation: slideInRight 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-/* Utility Classes */
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
-
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 0.75rem; }
-.mt-4 { margin-top: 1rem; }
-
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-4 { margin-bottom: 1rem; }
-
-.p-1 { padding: 0.25rem; }
-.p-2 { padding: 0.5rem; }
-.p-3 { padding: 0.75rem; }
-.p-4 { padding: 1rem; }
-
-/* Keyboard Shortcuts Help */
-.keyboard-shortcuts-help {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 15;
-  pointer-events: none;
-}
-
-.shortcuts-content {
-  display: flex;
-  gap: 16px;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 8px 16px;
-  border-radius: 20px;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.shortcut-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85em;
-  color: white;
-  opacity: 0.8;
-}
-
-.shortcut-item kbd {
-  background: rgba(76, 175, 80, 0.3);
-  color: #4CAF50;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  font-weight: bold;
-  border: 1px solid rgba(76, 175, 80, 0.5);
-}
-
-/* Hide shortcuts on mobile */
-@media (max-width: 768px) {
-  .keyboard-shortcuts-help {
-    display: none;
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation: none;
+  }
+  
+  * {
+    transition: none !important;
   }
 }

@@ -1,0 +1,393 @@
+/* Combo Display Styles */
+.combo-display {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 15;
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid #FF6B35;
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  padding: 16px;
+  max-width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.combo-display.minimized {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.minimized-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-combo-mini {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.combo-emoji {
+  font-size: 20px;
+  z-index: 2;
+}
+
+.progress-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.combo-icon {
+  font-size: 24px;
+}
+
+/* Header */
+.combo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.combo-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #FF6B35;
+}
+
+.header-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-btn, .minimize-btn {
+  background: rgba(255, 107, 53, 0.2);
+  border: 1px solid rgba(255, 107, 53, 0.5);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover, .minimize-btn:hover {
+  background: rgba(255, 107, 53, 0.4);
+  transform: scale(1.05);
+}
+
+/* Score Display */
+.combo-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 8px;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #ccc;
+}
+
+.score-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #FF6B35;
+}
+
+/* Active Combo */
+.active-combo {
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.combo-info {
+  margin-bottom: 12px;
+}
+
+.combo-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.combo-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #FF6B35;
+}
+
+.combo-description {
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
+.combo-effect {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+}
+
+/* Sequence Progress */
+.sequence-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.sequence-step {
+  font-size: 20px;
+  padding: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.sequence-step.completed {
+  background: rgba(76, 175, 80, 0.3);
+  border: 2px solid #4CAF50;
+}
+
+.sequence-step.active {
+  background: rgba(255, 107, 53, 0.3);
+  border: 2px solid #FF6B35;
+  animation: pulse 1s infinite;
+}
+
+.sequence-arrow {
+  color: #666;
+  font-size: 14px;
+}
+
+.sequence-effect {
+  font-size: 24px;
+  margin-left: 8px;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FF6B35, #FFD700);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.combo-points {
+  text-align: center;
+  font-size: 12px;
+  color: #FFD700;
+  font-weight: bold;
+}
+
+/* Completed Combo Animation */
+.completed-combo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.completion-burst {
+  text-align: center;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.9), rgba(255, 107, 53, 0.9));
+  border: 3px solid #FFD700;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+}
+
+.burst-emoji {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.burst-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 4px;
+}
+
+.burst-points {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FFD700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* All Combos List */
+.all-combos {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.all-combos h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #FF6B35;
+}
+
+.combos-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.combo-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.combo-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 107, 53, 0.5);
+}
+
+.combo-card.active {
+  background: rgba(255, 107, 53, 0.2);
+  border-color: #FF6B35;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-emoji {
+  font-size: 16px;
+}
+
+.card-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+}
+
+.card-sequence {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.sequence-gesture {
+  font-size: 14px;
+}
+
+.sequence-separator {
+  color: #666;
+  font-size: 12px;
+  margin: 0 2px;
+}
+
+.card-effect {
+  font-size: 11px;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
+.card-points {
+  font-size: 12px;
+  color: #FFD700;
+  font-weight: bold;
+  text-align: right;
+}
+
+/* Recent Gestures */
+.recent-gestures {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.recent-gestures h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #FF6B35;
+}
+
+.gesture-trail {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.trail-gesture {
+  font-size: 16px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .combo-display {
+    top: 10px;
+    right: 10px;
+    max-width: 300px;
+    font-size: 14px;
+  }
+  
+  .combo-display.minimized {
+    width: 50px;
+    height: 50px;
+  }
+}

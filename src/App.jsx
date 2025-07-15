@@ -1,289 +1,366 @@
-import React, { useRef, useEffect, useState } from 'react'
-import * as tf from '@tensorflow/tfjs';
-import * as handpose from '@tensorflow-models/handpose';
-import Webcam from 'react-webcam';
-import { drawHand, GESTURE_TYPES } from './utils';
-import Game from './utils/game';
-import HandTrackingHUD from './components/HandTrackingHUD';
-import SceneOverlay from './components/SceneOverlay';
+import React, { useRef, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { gsap } from 'gsap';
+import HandTracker from './components/HandTracker.jsx';
+import Scene3D from './components/Scene3D.jsx';
+import PerformanceHUD from './components/PerformanceHUD.jsx';
+import StatusIndicator from './components/StatusIndicator.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+import ThreeDMotionToggle from './components/3DMotionToggle.jsx';
+import CalibrationModal from './components/CalibrationModal.jsx';
+import ThreeDTrackingHUD from './components/3DTrackingHUD.jsx';
+import useHandDetection from './hooks/useHandDetection.js';
+import use3DScene from './hooks/use3DScene.js';
+import { TRACKING_MODES } from './core/3DMotionModeManager.js';
+import './App.css';
 
-import './App.css'
-
+/**
+ * Minimalistic 3D Hand Pose Game
+ * Focus: Hand detection + Single interactive cube
+ */
 function App() {
-  const webcamRef = useRef();
-  const canvasRef = useRef();
-  const gameCanvasRef = useRef();
-  const gameRef = useRef();
-  const [isLoading, setIsLoading] = useState(false);
-  const [handState, setHandState] = useState({
-    isTracking: false,
-    gesture: GESTURE_TYPES.NO_HAND,
-    confidence: 0,
-    position: { x: 0, y: 0 },
-    fingerSpread: 0
-  });
-  const [performanceMetrics, setPerformanceMetrics] = useState({
-    fps: 0,
-    latency: 0,
-    frameCount: 0,
-    lastFrameTime: 0
-  });
+  const sceneCanvasRef = useRef(null);
 
-  const [objects, setObjects] = useState([]);
-  const [selectedObject, setSelectedObject] = useState(null);
-  const [hudMinimized, setHudMinimized] = useState(false);
-  const [overlayMinimized, setOverlayMinimized] = useState(false);
+  // 3D Motion Mode state
+  const [currentTrackingMode, setCurrentTrackingMode] = useState(TRACKING_MODES.MODE_2D);
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  const [show3DTrackingHUD, setShow3DTrackingHUD] = useState(true);
+  const [trackingHUDMinimized, setTrackingHUDMinimized] = useState(false);
 
-  const initializeHandpose = async () => {
-    setIsLoading(true);
-    const net = await handpose.load();
-    setIsLoading(false);
-    
-    // Start detection loop with performance monitoring
-    let frameCount = 0;
-    let lastFrameTime = performance.now();
-    
-    const detectLoop = () => {
-      detect(net);
-      frameCount++;
-      
-      // Calculate FPS every 60 frames
-      if (frameCount % 60 === 0) {
-        const currentTime = performance.now();
-        const fps = 60000 / (currentTime - lastFrameTime);
-        lastFrameTime = currentTime;
-        
-        setPerformanceMetrics(prev => ({
-          ...prev,
-          fps: Math.round(fps),
-          frameCount
-        }));
+  // Custom hooks for hand detection and 3D scene
+  const {
+    isLoading: handLoading,
+    error: handError,
+    handState,
+    performance,
+    initialize: initializeHand,
+    startDetection,
+    switchTrackingMode,
+    startCalibration,
+    get3DModeStatus,
+    resetCalibration
+  } = useHandDetection();
+
+  const {
+    isLoading: sceneLoading,
+    error: sceneError,
+    cubeInfo,
+    initialize: initializeScene,
+    updateCubeWithHand
+  } = use3DScene(sceneCanvasRef);
+
+  /**
+   * Handle hand detection initialization
+   */
+  const handleHandDetection = async (webcamRef) => {
+    try {
+      console.log('🎯 Initializing hand detection...');
+
+      // First initialize the hand detection system
+      await initializeHand();
+
+      console.log('✅ Hand detection initialized, starting detection...');
+
+      // Then start detection with video
+      if (webcamRef && webcamRef.current && webcamRef.current.video) {
+        const video = webcamRef.current.video;
+
+        const startDetectionWhenReady = () => {
+          if (video.readyState >= 2) {
+            console.log('🎥 Video ready, starting detection loop...');
+            startDetection(video);
+          } else {
+            console.log('⏳ Waiting for video to be ready...');
+            video.addEventListener('loadeddata', startDetectionWhenReady, { once: true });
+          }
+        };
+
+        startDetectionWhenReady();
+      } else {
+        console.warn('⚠️ Webcam reference not available');
       }
-      
-      // Continue loop
-      requestAnimationFrame(detectLoop);
-    };
-    
-    detectLoop();
-  }
-
-  const detect = async (net) => {
-    if (webcamRef.current && webcamRef.current.video.readyState === 4) {
-      const startTime = performance.now();
-      
-      canvasRef.current.width = webcamRef.current.video.videoWidth;
-      canvasRef.current.height = webcamRef.current.video.videoHeight;
-      
-      const hand = await net.estimateHands(webcamRef.current.video);
-      const newHandState = drawHand(hand, canvasRef.current.getContext('2d'));
-      
-      // Update hand state
-      setHandState(newHandState);
-      
-      // Update game with new hand state
-      if (gameRef.current) {
-        gameRef.current.updateHandState(newHandState);
-
-        // Update object information
-        if (gameRef.current.getAllObjects) {
-          const allObjects = gameRef.current.getAllObjects();
-          const selected = gameRef.current.getSelectedObject();
-          setObjects(allObjects);
-          setSelectedObject(selected);
-        }
-      }
-      
-      // Calculate latency
-      const endTime = performance.now();
-      const latency = endTime - startTime;
-      
-      setPerformanceMetrics(prev => ({
-        ...prev,
-        latency: Math.round(latency)
-      }));
+    } catch (error) {
+      console.error('❌ Failed to initialize hand detection:', error);
     }
-  }
-
-  useEffect(() => {
-    gameCanvasRef.current.width = window.innerWidth / 2;
-    gameCanvasRef.current.height = window.innerHeight - 100;
-
-    gameRef.current = new Game(gameCanvasRef.current);
-    initializeHandpose();
-
-    // Add keyboard shortcuts for HUD controls
-    const handleKeyPress = (event) => {
-      // H key to toggle Hand Tracking HUD
-      if (event.key.toLowerCase() === 'h' && !event.ctrlKey && !event.altKey) {
-        setHudMinimized(prev => !prev);
-      }
-      // O key to toggle Object info Overlay
-      if (event.key.toLowerCase() === 'o' && !event.ctrlKey && !event.altKey) {
-        setOverlayMinimized(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [])
-
-  const getGestureEmoji = (gesture) => {
-    const emojis = {
-      [GESTURE_TYPES.OPEN_HAND]: '✋',
-      [GESTURE_TYPES.CLOSED_FIST]: '✊',
-      [GESTURE_TYPES.PINCH]: '🤏',
-      [GESTURE_TYPES.POINT]: '👆',
-      [GESTURE_TYPES.VICTORY]: '✌️',
-      [GESTURE_TYPES.THUMBS_UP]: '👍',
-      [GESTURE_TYPES.ROCK_ON]: '🤘',
-      [GESTURE_TYPES.OK_SIGN]: '👌',
-      [GESTURE_TYPES.NO_HAND]: '❌'
-    };
-    return emojis[gesture] || '❓';
   };
 
-  const getGestureDescription = (gesture) => {
-    const descriptions = {
-      [GESTURE_TYPES.OPEN_HAND]: 'Open Hand - Movement Mode',
-      [GESTURE_TYPES.CLOSED_FIST]: 'Closed Fist - Grab Mode',
-      [GESTURE_TYPES.PINCH]: 'Pinch - Resize Mode',
-      [GESTURE_TYPES.POINT]: 'Point - Select Mode',
-      [GESTURE_TYPES.VICTORY]: 'Victory - Special Action',
-      [GESTURE_TYPES.THUMBS_UP]: 'Thumbs Up - Confirm',
-      [GESTURE_TYPES.ROCK_ON]: 'Rock On - Special Effect',
-      [GESTURE_TYPES.OK_SIGN]: 'OK Sign - Reset',
-      [GESTURE_TYPES.NO_HAND]: 'No Hand Detected'
+  /**
+   * Handle 3D scene initialization
+   */
+  const handleSceneReady = async (canvasRef) => {
+    sceneCanvasRef.current = canvasRef.current;
+    try {
+      await initializeScene();
+    } catch (error) {
+      console.error('Failed to initialize 3D scene:', error);
+    }
+  };
+
+  /**
+   * Handle tracking mode switch
+   */
+  const handleModeSwitch = (mode) => {
+    const success = switchTrackingMode(mode);
+    if (success) {
+      setCurrentTrackingMode(mode);
+    }
+  };
+
+  /**
+   * Handle calibration start
+   */
+  const handleCalibrationStart = () => {
+    setShowCalibrationModal(true);
+  };
+
+  /**
+   * Handle calibration complete
+   */
+  const handleCalibrationComplete = () => {
+    setShowCalibrationModal(false);
+    setCurrentTrackingMode(TRACKING_MODES.MODE_3D);
+  };
+
+  /**
+   * Initialize hand detection on mount
+   */
+  useEffect(() => {
+    const initializeOnMount = async () => {
+      try {
+        console.log('🚀 Initializing hand detection system on mount...');
+        await initializeHand();
+      } catch (error) {
+        console.error('❌ Failed to initialize hand detection on mount:', error);
+      }
     };
-    return descriptions[gesture] || 'Unknown Gesture';
+
+    initializeOnMount();
+  }, [initializeHand]);
+
+  /**
+   * Update cube with hand gestures
+   */
+  useEffect(() => {
+    if (handState.isTracking && updateCubeWithHand) {
+      const is3DMode = currentTrackingMode === TRACKING_MODES.MODE_3D;
+      updateCubeWithHand(handState, is3DMode);
+    }
+  }, [handState, updateCubeWithHand, currentTrackingMode]);
+
+  const isLoading = handLoading || sceneLoading;
+  const error = handError || sceneError;
+
+  // Determine status for indicators
+  const getHandDetectionStatus = () => {
+    if (handError) return 'error';
+    if (handLoading) return 'loading';
+    if (handState.isTracking) return 'ready';
+    return 'waiting';
+  };
+
+  const getSceneStatus = () => {
+    if (sceneError) return 'error';
+    if (sceneLoading) return 'loading';
+    if (cubeInfo) return 'ready';
+    return 'waiting';
   };
 
   return (
-    <>
-      <div className="App">
-        <div className="webcam-ai__container">
-          {isLoading && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-              <h1>Initializing AI Model...</h1>
-              <p>Please ensure your webcam is enabled</p>
-            </div>
-          )}
-          <Webcam ref={webcamRef} className="webcam"/>
-          <canvas className="webcam-ai__canvas" ref={canvasRef}/>
-          
-          {/* Enhanced Hand Tracking HUD */}
-          <HandTrackingHUD
-            handState={handState}
-            isLoading={isLoading}
-            objects={objects}
-            selectedObject={selectedObject}
-            isMinimized={hudMinimized}
-            onToggleMinimize={() => setHudMinimized(!hudMinimized)}
+    <ErrorBoundary>
+      <motion.div
+        className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-800 text-white overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        {/* Main Content */}
+        <div className="flex h-screen gap-4 p-4">
+          {/* Hand Tracking Panel */}
+          <motion.div
+            className="hand-tracker-container w-80 h-60 flex-shrink-0"
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <HandTracker
+              onHandDetection={handleHandDetection}
+              isLoading={handLoading}
+              error={handError}
+              width={320}
+              height={240}
+            />
+          </motion.div>
+
+          {/* 3D Scene Panel */}
+          <motion.div
+            className="scene-container flex-1 relative"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <Scene3D
+              onSceneReady={handleSceneReady}
+              className="w-full h-full"
+            />
+
+            {/* Loading overlay for 3D scene */}
+            <AnimatePresence>
+              {sceneLoading && (
+                <motion.div
+                  className="overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="overlay-content">
+                    <div className="spinner w-8 h-8 mx-auto mb-4"></div>
+                    <p className="text-accent-400 font-medium">Initializing 3D Scene...</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Error overlay for 3D scene */}
+            <AnimatePresence>
+              {sceneError && (
+                <motion.div
+                  className="overlay glow-error"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="overlay-content">
+                    <p className="text-red-400 font-medium">⚠️ {sceneError}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </div>
+
+        {/* Status Indicator */}
+        <motion.div
+          className="absolute top-4 left-4 z-10"
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+        >
+          <StatusIndicator
+            handDetectionStatus={getHandDetectionStatus()}
+            sceneStatus={getSceneStatus()}
           />
-        </div>
-        
-        <div className="game">
-          <canvas className="game__canvas" ref={gameCanvasRef}/>
+        </motion.div>
 
-          {/* Enhanced 3D Scene Overlay */}
-          <SceneOverlay
+        {/* Performance HUD */}
+        <motion.div
+          className="absolute top-4 right-4 z-10"
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+        >
+          <PerformanceHUD
             handState={handState}
-            gameRef={gameRef}
-            isMinimized={overlayMinimized}
-            onToggleMinimize={() => setOverlayMinimized(!overlayMinimized)}
+            performance={performance}
+            cubeInfo={cubeInfo}
+            position="top-right"
           />
-        </div>
-      </div>
+        </motion.div>
 
-      {/* Keyboard Shortcuts Help */}
-      <div className="keyboard-shortcuts-help">
-        <div className="shortcuts-content">
-          <span className="shortcut-item">
-            <kbd>H</kbd> Toggle Hand HUD
-          </span>
-          <span className="shortcut-item">
-            <kbd>O</kbd> Toggle Object Panel
-          </span>
-        </div>
-      </div>
+        {/* 3D Motion Toggle */}
+        <motion.div
+          className="absolute top-20 left-4 z-10"
+          initial={{ x: -50, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 1.0 }}
+        >
+          <ThreeDMotionToggle
+            currentMode={currentTrackingMode}
+            onModeSwitch={handleModeSwitch}
+            onCalibrationStart={handleCalibrationStart}
+            modeStatus={get3DModeStatus()}
+          />
+        </motion.div>
 
-      <footer className="footer">
-        <div className="instructions">
-          <h2>🎮 Enhanced Hand Controls</h2>
-          <div className="instruction-grid">
-            <div className="instruction-item">
-              <span className="emoji">✋</span>
-              <div>
-                <strong>Open Hand</strong>
-                <p>Move box around the scene</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">🤏</span>
-              <div>
-                <strong>Pinch Gesture</strong>
-                <p>Resize the box</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">✊</span>
-              <div>
-                <strong>Closed Fist</strong>
-                <p>Grab mode (hold for effect)</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">👆</span>
-              <div>
-                <strong>Point Gesture</strong>
-                <p>Selection mode (hold for effect)</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">✌️</span>
-              <div>
-                <strong>Victory Sign</strong>
-                <p>Special action (hold for effect)</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">👍</span>
-              <div>
-                <strong>Thumbs Up</strong>
-                <p>Confirm action (hold for effect)</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">🤘</span>
-              <div>
-                <strong>Rock On</strong>
-                <p>Special effect (hold for effect)</p>
-              </div>
-            </div>
-            
-            <div className="instruction-item">
-              <span className="emoji">👌</span>
-              <div>
-                <strong>OK Sign</strong>
-                <p>Reset game (hold for effect)</p>
-              </div>
-            </div>
+        {/* 3D Tracking HUD */}
+        {show3DTrackingHUD && (
+          <motion.div
+            className="absolute top-20 right-4 z-10"
+            initial={{ x: 50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+          >
+            <ThreeDTrackingHUD
+              handState={handState}
+              modeStatus={get3DModeStatus()}
+              isMinimized={trackingHUDMinimized}
+              onToggleMinimize={() => setTrackingHUDMinimized(!trackingHUDMinimized)}
+            />
+          </motion.div>
+        )}
+
+        {/* Instructions Panel */}
+        <motion.div
+          className="absolute bottom-4 left-4 z-10"
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 1.0 }}
+        >
+          <div className="card-compact space-y-2">
+            <h3 className="text-sm font-semibold text-accent-400 mb-3">Gesture Controls</h3>
+            <motion.div
+              className="gesture-item"
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              transition={{ duration: 0.2 }}
+            >
+              <span className="gesture-icon">✋</span>
+              <span className="gesture-text">Open Hand - Move Cube</span>
+            </motion.div>
+            <motion.div
+              className="gesture-item"
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              transition={{ duration: 0.2 }}
+            >
+              <span className="gesture-icon">✊</span>
+              <span className="gesture-text">Fist - Grab Cube</span>
+            </motion.div>
+            <motion.div
+              className="gesture-item"
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              transition={{ duration: 0.2 }}
+            >
+              <span className="gesture-icon">🤏</span>
+              <span className="gesture-text">Pinch - Scale Cube</span>
+            </motion.div>
+
+            {/* 3D Mode Instruction */}
+            {currentTrackingMode === TRACKING_MODES.MODE_3D && (
+              <motion.div
+                className="gesture-item"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                whileHover={{ scale: 1.02, backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
+              >
+                <span className="gesture-icon">🎯</span>
+                <span className="gesture-text">3D Motion - Full Spatial Control</span>
+              </motion.div>
+            )}
           </div>
-          
-          <div className="ai-info">
-            <h3>🤖 AI-Powered Gesture Recognition</h3>
-            <p>This game uses advanced machine learning to recognize 8 different hand gestures with real-time confidence scoring and temporal smoothing for stable detection.</p>
-          </div>
-        </div>
-      </footer>
-    </>
-  )
+        </motion.div>
+
+        {/* Calibration Modal */}
+        <CalibrationModal
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          onComplete={handleCalibrationComplete}
+          handState={handState}
+          startCalibration={startCalibration}
+        />
+      </motion.div>
+    </ErrorBoundary>
+  );
 }
 
-export default App
+export default App;
