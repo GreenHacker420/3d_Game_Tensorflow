@@ -92,6 +92,19 @@ export const useHandDetection = () => {
   const startDetection = useCallback((videoElement) => {
     if (!isInitialized) {
       console.warn('❌ Cannot start detection: Hand detection not initialized');
+      console.log('🔄 Waiting for initialization to complete...');
+
+      // Wait for initialization and retry
+      const retryInterval = setInterval(() => {
+        if (isInitialized) {
+          clearInterval(retryInterval);
+          console.log('✅ Hand detection now initialized, starting detection...');
+          startDetection(videoElement);
+        }
+      }, 100);
+
+      // Clear interval after 10 seconds to prevent infinite waiting
+      setTimeout(() => clearInterval(retryInterval), 10000);
       return;
     }
 
@@ -123,8 +136,8 @@ export const useHandDetection = () => {
       try {
         const startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
-        // Detect hands
-        const predictions = await detectionEngineRef.current.detectHands(videoElement);
+        // Use adaptive detection for better performance and accuracy
+        const predictions = await detectionEngineRef.current.detectHandsAdaptive(videoElement);
         const landmarks = detectionEngineRef.current.extractLandmarks(predictions);
 
         if (landmarks) {
@@ -215,9 +228,39 @@ export const useHandDetection = () => {
   }, []);
 
   /**
-   * Start 3D calibration
+   * Initialize adaptive mapper with video and scene elements
+   * @param {HTMLVideoElement} videoElement - Webcam video element
+   * @param {HTMLCanvasElement} sceneElement - 3D scene canvas element
+   */
+  const initializeAdaptiveMapper = useCallback(async (videoElement, sceneElement) => {
+    if (handStateManagerRef.current && handStateManagerRef.current.initializeAdaptiveMapper) {
+      try {
+        const success = await handStateManagerRef.current.initializeAdaptiveMapper(videoElement, sceneElement);
+        console.log(success ? '✅ Adaptive mapper initialized' : '⚠️ Adaptive mapper initialization failed');
+        return success;
+      } catch (error) {
+        console.error('❌ Failed to initialize adaptive mapper:', error);
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
+  /**
+   * Start 3D calibration with adaptive mapping support
    */
   const startCalibration = useCallback((onProgress, onComplete) => {
+    // Try adaptive mapper calibration first
+    if (handStateManagerRef.current && handStateManagerRef.current.startCalibration) {
+      const adaptiveResult = handStateManagerRef.current.startCalibration();
+      if (adaptiveResult.isActive) {
+        console.log('🎯 Starting adaptive calibration');
+        return adaptiveResult;
+      }
+    }
+
+    // Fallback to motion mode manager
+    console.log('🎯 Starting legacy 3D calibration');
     return motionModeManagerRef.current?.startCalibration(onProgress, onComplete);
   }, []);
 
@@ -267,6 +310,9 @@ export const useHandDetection = () => {
     getCurrentHandState,
     mapTo3DCoordinates,
     reset,
+
+    // Adaptive Mapping
+    initializeAdaptiveMapper,
 
     // 3D Motion Mode
     switchTrackingMode,

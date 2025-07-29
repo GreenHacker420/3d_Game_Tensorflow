@@ -1,122 +1,37 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import Webcam from 'react-webcam';
+import WebcamHandOverlay from './WebcamHandOverlay.jsx';
 
 /**
  * Minimalistic hand tracking component with webcam and overlay canvas
  */
-const HandTracker = ({ 
-  onHandDetection, 
-  isLoading, 
+const HandTracker = ({
+  onHandDetection,
+  handState,
+  isLoading,
   error,
   className = '',
   width = 640,
-  height = 480
+  height = 480,
+  showHandOverlay = true
 }) => {
   const webcamRef = useRef(null);
-  const canvasRef = useRef(null);
 
-  /**
-   * Draw hand landmarks on canvas
-   */
-  const drawHandLandmarks = (landmarks) => {
-    if (!canvasRef.current || !landmarks) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Set drawing style
-    ctx.strokeStyle = '#00ff00';
-    ctx.fillStyle = '#00ff00';
-    ctx.lineWidth = 2;
-
-    // Draw landmarks as small circles
-    landmarks.forEach((landmark, index) => {
-      const x = landmark[0];
-      const y = landmark[1];
-      
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      // Draw landmark number for key points
-      if ([0, 4, 8, 12, 16, 20].includes(index)) {
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '10px Arial';
-        ctx.fillText(index.toString(), x + 5, y - 5);
-        ctx.fillStyle = '#00ff00';
-      }
-    });
-
-    // Draw connections between landmarks
-    const connections = [
-      // Thumb
-      [0, 1], [1, 2], [2, 3], [3, 4],
-      // Index finger
-      [0, 5], [5, 6], [6, 7], [7, 8],
-      // Middle finger
-      [0, 9], [9, 10], [10, 11], [11, 12],
-      // Ring finger
-      [0, 13], [13, 14], [14, 15], [15, 16],
-      // Pinky
-      [0, 17], [17, 18], [18, 19], [19, 20]
-    ];
-
-    ctx.strokeStyle = '#00ff0080';
-    connections.forEach(([start, end]) => {
-      const startPoint = landmarks[start];
-      const endPoint = landmarks[end];
-      
-      ctx.beginPath();
-      ctx.moveTo(startPoint[0], startPoint[1]);
-      ctx.lineTo(endPoint[0], endPoint[1]);
-      ctx.stroke();
-    });
-  };
-
-  /**
-   * Update canvas size to match video
-   */
-  const updateCanvasSize = () => {
-    if (webcamRef.current && canvasRef.current) {
-      const video = webcamRef.current.video;
-      if (video && video.videoWidth && video.videoHeight) {
-        canvasRef.current.width = video.videoWidth;
-        canvasRef.current.height = video.videoHeight;
-      }
-    }
-  };
 
   /**
    * Handle webcam ready
    */
   const handleWebcamReady = () => {
-    updateCanvasSize();
-
     if (onHandDetection && webcamRef.current) {
       // Pass the webcam ref object, not the current value
       onHandDetection(webcamRef);
     }
   };
 
-  /**
-   * Update canvas size when video loads
-   */
-  useEffect(() => {
-    const video = webcamRef.current?.video;
-    if (video) {
-      const handleLoadedMetadata = () => {
-        updateCanvasSize();
-      };
-      
-      video.addEventListener('loadedmetadata', handleLoadedMetadata);
-      return () => video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    }
-  }, []);
+
 
   return (
     <motion.div
@@ -197,15 +112,20 @@ const HandTracker = ({
           }}
         />
 
-        {/* Hand landmarks overlay canvas */}
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 pointer-events-none z-10"
-          style={{
-            width: '100%',
-            height: '100%'
-          }}
-        />
+        {/* Hand landmarks overlay */}
+        {showHandOverlay && (
+          <WebcamHandOverlay
+            handState={handState}
+            webcamRef={webcamRef}
+            className="absolute inset-0 pointer-events-none z-10"
+            showLandmarks={true}
+            showConnections={true}
+            showBoundingBox={true}
+            lineColor="#00ff00"
+            pointColor="#ff0000"
+            confidenceThreshold={0.3}
+          />
+        )}
 
         {/* Status indicator */}
         <motion.div

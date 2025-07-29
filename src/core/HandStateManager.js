@@ -1,4 +1,7 @@
 import { GESTURE_TYPES } from './GestureClassifier.js';
+import AdaptiveCanvasMapper from './AdaptiveCanvasMapper.js';
+import PredictiveTracker from './PredictiveTracker.js';
+import { getMemoryPoolManager } from './MemoryPoolManager.js';
 
 /**
  * Manages hand state and provides smooth hand tracking data
@@ -10,6 +13,34 @@ export class HandStateManager {
     this.smoothingFactor = 0.7;
     this.confidenceThreshold = 0.6;
     this.onStateChange = null;
+
+    // Adaptive canvas mapper for dynamic coordinate transformation
+    this.adaptiveMapper = new AdaptiveCanvasMapper();
+    this.isMapperInitialized = false;
+
+    // Predictive tracker for smooth tracking and predictions
+    this.predictiveTracker = new PredictiveTracker({
+      enablePrediction: true,
+      predictionTimeAhead: 0.1,
+      adaptiveSmoothing: true,
+      confidenceThreshold: 0.3
+    });
+
+    // Enhanced state tracking
+    this.stateHistory = [];
+    this.maxHistorySize = 10;
+    this.qualityMetrics = {
+      stability: 1.0,
+      accuracy: 1.0,
+      responsiveness: 1.0
+    };
+
+    // Video and scene element references for adaptive mapping
+    this.videoElement = null;
+    this.sceneElement = null;
+
+    // Memory pool manager for performance optimization
+    this.memoryPool = getMemoryPoolManager();
   }
 
   /**
@@ -41,38 +72,70 @@ export class HandStateManager {
   updateState(landmarks, gestureResult, handCenter, fingerSpread, pinchData, handOrientation = null) {
     this.previousState = { ...this.currentState };
 
+    // Create basic hand state for predictive tracker using memory pool
+    let basicHandState;
     if (!landmarks || !gestureResult) {
-      this.currentState = {
-        ...this.getInitialState(),
-        timestamp: Date.now()
-      };
+      basicHandState = this.memoryPool.get('HandState', (obj) => {
+        Object.assign(obj, this.getInitialState());
+        obj.timestamp = Date.now();
+      });
     } else {
-      // Apply smoothing to position
-      const smoothedPosition = this.smoothPosition(handCenter);
+      basicHandState = this.memoryPool.get('HandState', (obj) => {
+        obj.isTracking = true;
+        obj.gesture = gestureResult.gesture;
+        obj.confidence = gestureResult.confidence;
+        obj.position = handCenter;
+        obj.fingerSpread = fingerSpread;
+        obj.isPinched = pinchData.isPinched;
+        obj.pinchDistance = pinchData.distance;
+        obj.orientation = handOrientation;
+        obj.landmarks = landmarks;
+        obj.timestamp = Date.now();
+      });
+    }
 
-      // Apply smoothing to finger spread
-      const smoothedSpread = this.smoothValue(
-        fingerSpread,
-        this.previousState.fingerSpread
-      );
+    // Enhance with predictive tracking
+    const enhancedState = this.predictiveTracker.update(basicHandState);
 
-      // Apply smoothing to orientation if provided
-      const smoothedOrientation = handOrientation ?
-        this.smoothOrientation(handOrientation) : null;
+    // Apply traditional smoothing to finger spread and orientation
+    const smoothedSpread = landmarks && gestureResult ? this.smoothValue(
+      fingerSpread,
+      this.previousState.fingerSpread
+    ) : fingerSpread;
 
-      this.currentState = {
-        isTracking: true,
-        gesture: gestureResult.gesture,
-        confidence: gestureResult.confidence,
-        position: smoothedPosition,
-        fingerSpread: smoothedSpread,
-        isPinched: pinchData.isPinched,
-        pinchDistance: pinchData.distance,
-        orientation: smoothedOrientation,
-        landmarks: landmarks, // Store landmarks for 3D processing
-        timestamp: Date.now()
+    const smoothedOrientation = handOrientation && landmarks && gestureResult ?
+      this.smoothOrientation(handOrientation) : handOrientation;
+
+    // Update current state with enhanced data
+    this.currentState = {
+      ...enhancedState,
+      // Keep original data for compatibility
+      fingerSpread: smoothedSpread,
+      isPinched: pinchData?.isPinched || false,
+      pinchDistance: pinchData?.distance || 0,
+      orientation: smoothedOrientation,
+      landmarks: landmarks,
+      timestamp: Date.now(),
+
+      // Add enhanced tracking data
+      smoothedPosition: enhancedState.smoothedPosition,
+      predictedPosition: enhancedState.predictedPosition,
+      velocity: enhancedState.velocity,
+      predictions: enhancedState.predictions,
+      trackingMetrics: enhancedState.trackingMetrics
+    };
+
+    // Update quality metrics with enhanced data
+    if (enhancedState.qualityMetrics) {
+      this.qualityMetrics = {
+        stability: enhancedState.qualityMetrics.smoothness,
+        accuracy: enhancedState.qualityMetrics.overall,
+        responsiveness: enhancedState.qualityMetrics.responsiveness
       };
     }
+
+    // Release the pooled basic hand state object
+    this.memoryPool.release(basicHandState);
 
     // Notify state change
     this.notifyStateChange();
@@ -177,11 +240,39 @@ export class HandStateManager {
   }
 
   /**
-   * Map hand position to 3D scene coordinates
-   * @param {number} sceneWidth - Scene width
-   * @param {number} sceneHeight - Scene height
-   * @param {number} videoWidth - Video width (default 640)
-   * @param {number} videoHeight - Video height (default 480)
+   * Initialize adaptive mapper with video and scene elements
+   * @param {HTMLVideoElement} videoElement - Webcam video element
+   * @param {HTMLCanvasElement} sceneElement - 3D scene canvas element
+   * @returns {Promise<boolean>} Success status
+   */
+  async initializeAdaptiveMapper(videoElement, sceneElement) {
+    this.videoElement = videoElement;
+    this.sceneElement = sceneElement;
+
+    try {
+      const success = await this.adaptiveMapper.initialize(videoElement, sceneElement);
+      this.isMapperInitialized = success;
+
+      if (success) {
+        console.log('✅ HandStateManager: Adaptive mapper initialized');
+      } else {
+        console.warn('⚠️ HandStateManager: Adaptive mapper initialization failed');
+      }
+
+      return success;
+    } catch (error) {
+      console.error('❌ HandStateManager: Failed to initialize adaptive mapper:', error);
+      this.isMapperInitialized = false;
+      return false;
+    }
+  }
+
+  /**
+   * Map hand position to 3D scene coordinates using adaptive mapping
+   * @param {number} sceneWidth - Scene width (fallback)
+   * @param {number} sceneHeight - Scene height (fallback)
+   * @param {number} videoWidth - Video width (fallback)
+   * @param {number} videoHeight - Video height (fallback)
    * @returns {Object} Mapped 3D position {x, y, z}
    */
   mapTo3DCoordinates(sceneWidth = 100, sceneHeight = 80, videoWidth = 640, videoHeight = 480) {
@@ -189,10 +280,46 @@ export class HandStateManager {
       return { x: 0, y: 0, z: 0 };
     }
 
+    // Use adaptive mapper if available
+    if (this.isMapperInitialized && this.adaptiveMapper) {
+      try {
+        const mappingResult = this.adaptiveMapper.mapCoordinates(
+          this.currentState.position,
+          this.currentState.confidence
+        );
+
+        if (mappingResult.isValid) {
+          // Update quality metrics
+          this.updateQualityMetrics(mappingResult);
+
+          return {
+            x: mappingResult.position.x,
+            y: mappingResult.position.y,
+            z: mappingResult.position.z
+          };
+        }
+      } catch (error) {
+        console.warn('⚠️ Adaptive mapping failed, falling back to legacy mapping:', error);
+      }
+    }
+
+    // Fallback to legacy mapping
+    return this.mapTo3DCoordinatesLegacy(sceneWidth, sceneHeight, videoWidth, videoHeight);
+  }
+
+  /**
+   * Legacy coordinate mapping (fallback)
+   * @param {number} sceneWidth - Scene width
+   * @param {number} sceneHeight - Scene height
+   * @param {number} videoWidth - Video width
+   * @param {number} videoHeight - Video height
+   * @returns {Object} Mapped 3D position {x, y, z}
+   */
+  mapTo3DCoordinatesLegacy(sceneWidth, sceneHeight, videoWidth, videoHeight) {
     // Map webcam coordinates to scene coordinates
     const mappedX = ((this.currentState.position.x / videoWidth) * sceneWidth) - (sceneWidth / 2);
     const mappedY = ((1 - this.currentState.position.y / videoHeight) * sceneHeight) - (sceneHeight / 2);
-    
+
     // Z coordinate based on finger spread (for depth simulation)
     const mappedZ = (this.currentState.fingerSpread / 200) * 20 - 10;
 
@@ -201,6 +328,111 @@ export class HandStateManager {
       y: mappedY,
       z: mappedZ
     };
+  }
+
+  /**
+   * Update quality metrics based on mapping results
+   * @param {Object} mappingResult - Result from adaptive mapper
+   */
+  updateQualityMetrics(mappingResult) {
+    const alpha = 0.1; // Smoothing factor for metrics
+
+    // Update stability based on mapping quality
+    this.qualityMetrics.stability = this.qualityMetrics.stability * (1 - alpha) +
+                                   mappingResult.quality * alpha;
+
+    // Update accuracy based on confidence
+    this.qualityMetrics.accuracy = this.qualityMetrics.accuracy * (1 - alpha) +
+                                  this.currentState.confidence * alpha;
+
+    // Update responsiveness based on latency
+    if (mappingResult.metadata && mappingResult.metadata.latency) {
+      const responsivenessScore = Math.max(0, 1 - mappingResult.metadata.latency / 50); // 50ms target
+      this.qualityMetrics.responsiveness = this.qualityMetrics.responsiveness * (1 - alpha) +
+                                          responsivenessScore * alpha;
+    }
+  }
+
+  /**
+   * Get current quality metrics with enhanced tracking data
+   * @returns {Object} Quality metrics
+   */
+  getQualityMetrics() {
+    const baseMetrics = {
+      ...this.qualityMetrics,
+      isAdaptiveMapping: this.isMapperInitialized,
+      overallQuality: (this.qualityMetrics.stability +
+                      this.qualityMetrics.accuracy +
+                      this.qualityMetrics.responsiveness) / 3
+    };
+
+    // Add predictive tracking metrics if available
+    if (this.currentState.trackingMetrics) {
+      return {
+        ...baseMetrics,
+        predictiveTracking: {
+          isActive: this.currentState.trackingMetrics.isTracking,
+          smoothness: this.currentState.qualityMetrics?.smoothness || baseMetrics.stability,
+          predictionAccuracy: this.currentState.qualityMetrics?.predictionAccuracy || 1.0,
+          latency: this.currentState.trackingMetrics.latency || 0,
+          frameCount: this.currentState.trackingMetrics.frameCount || 0
+        },
+        kalmanFilter: {
+          position: this.currentState.trackingMetrics.positionFilterMetrics || {},
+          gesture: this.currentState.trackingMetrics.gestureFilterMetrics || {}
+        }
+      };
+    }
+
+    return baseMetrics;
+  }
+
+  /**
+   * Update scene dimensions for responsive design
+   * @param {HTMLCanvasElement} sceneElement - Updated scene element
+   */
+  updateSceneDimensions(sceneElement) {
+    if (this.isMapperInitialized && this.adaptiveMapper) {
+      this.sceneElement = sceneElement;
+      this.adaptiveMapper.updateSceneDimensions(sceneElement);
+    }
+  }
+
+  /**
+   * Start calibration for 3D mapping
+   * @param {Object} options - Calibration options
+   * @returns {Object} Calibration session info
+   */
+  startCalibration(options = {}) {
+    if (this.isMapperInitialized && this.adaptiveMapper) {
+      return this.adaptiveMapper.startCalibration(options);
+    }
+
+    console.warn('⚠️ Cannot start calibration: Adaptive mapper not initialized');
+    return { isActive: false, error: 'Adaptive mapper not initialized' };
+  }
+
+  /**
+   * Add calibration point
+   * @param {string} pointType - Type of calibration point
+   * @returns {Object} Calibration progress
+   */
+  addCalibrationPoint(pointType) {
+    if (this.isMapperInitialized && this.adaptiveMapper && this.currentState.isTracking) {
+      return this.adaptiveMapper.addCalibrationPoint(this.currentState.position, pointType);
+    }
+
+    console.warn('⚠️ Cannot add calibration point: Mapper not initialized or hand not tracked');
+    return { isComplete: false, error: 'Cannot add calibration point' };
+  }
+
+  /**
+   * Reset calibration
+   */
+  resetCalibration() {
+    if (this.isMapperInitialized && this.adaptiveMapper) {
+      this.adaptiveMapper.resetCalibration();
+    }
   }
 
   /**

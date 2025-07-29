@@ -18,6 +18,10 @@ export class SceneManager {
     this.isDisposed = false;
     this.onError = null;
     this.renderLoop = null;
+
+    // Store references for adaptive mapping
+    this.videoElement = null;
+    this.adaptiveMapper = null;
   }
 
   /**
@@ -215,6 +219,40 @@ export class SceneManager {
       fps: Math.round(this.engine.getFps()),
       deltaTime: this.engine.getDeltaTime()
     };
+  }
+
+  /**
+   * Set adaptive mapper reference
+   * @param {Object} adaptiveMapper - Adaptive mapper instance
+   */
+  setAdaptiveMapper(adaptiveMapper) {
+    this.adaptiveMapper = adaptiveMapper;
+
+    // Make adaptive mapper available to scene objects
+    if (this.scene) {
+      this.scene.getAdaptiveMapper = () => this.adaptiveMapper;
+    }
+  }
+
+  /**
+   * Get adaptive mapper
+   * @returns {Object} Adaptive mapper instance
+   */
+  getAdaptiveMapper() {
+    return this.adaptiveMapper;
+  }
+
+  /**
+   * Set video element reference for adaptive mapping
+   * @param {HTMLVideoElement} videoElement - Video element
+   */
+  setVideoElement(videoElement) {
+    this.videoElement = videoElement;
+
+    // Make video element available to scene objects
+    if (this.scene) {
+      this.scene.videoElement = videoElement;
+    }
   }
 
   /**

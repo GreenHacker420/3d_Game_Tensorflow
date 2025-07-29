@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import DraggableWrapper from './DraggableWrapper.jsx';
 
 /**
  * Simple status indicator for system health
@@ -41,12 +42,17 @@ const StatusIndicator = ({
   };
 
   return (
-    <motion.div
-      className={`hud-panel space-y-2 ${className}`}
-      initial={{ x: -50, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
+    <DraggableWrapper
+      initialPosition={{ x: 20, y: 300 }}
+      zIndex={15}
+      className="status-indicator-draggable"
     >
+      <motion.div
+        className={`hud-panel space-y-2 ${className}`}
+        initial={{ x: -50, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
       <motion.div
         className="flex items-center space-x-3"
         whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
@@ -95,6 +101,7 @@ const StatusIndicator = ({
         </span>
       </motion.div>
     </motion.div>
+    </DraggableWrapper>
   );
 };
 

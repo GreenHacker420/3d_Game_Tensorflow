@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
+import DraggableWrapper from './DraggableWrapper.jsx';
 
 /**
  * Minimalistic performance HUD component
@@ -78,12 +79,17 @@ const PerformanceHUD = ({
   }
 
   return (
-    <motion.div
-      className="hud-panel min-w-48"
-      initial={{ x: 50, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
+    <DraggableWrapper
+      initialPosition={{ x: 20, y: 200 }}
+      zIndex={20}
+      className="performance-hud-draggable"
     >
+      <motion.div
+        className="hud-panel min-w-48"
+        initial={{ x: 50, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-accent-400">Performance</h3>
@@ -206,6 +212,7 @@ const PerformanceHUD = ({
         </AnimatePresence>
       </div>
     </motion.div>
+    </DraggableWrapper>
   );
 };
 

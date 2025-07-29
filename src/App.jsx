@@ -8,8 +8,13 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import ThreeDMotionToggle from './components/3DMotionToggle.jsx';
 import CalibrationModal from './components/CalibrationModal.jsx';
 import ThreeDTrackingHUD from './components/3DTrackingHUD.jsx';
+import EnhancedHandVisualization from './components/EnhancedHandVisualization.jsx';
+import ConfidenceIndicator from './components/ConfidenceIndicator.jsx';
+import InteractiveCalibrationGuide from './components/InteractiveCalibrationGuide.jsx';
+import MobileUI from './components/MobileUI.jsx';
 import useHandDetection from './hooks/useHandDetection.js';
 import use3DScene from './hooks/use3DScene.js';
+import useLenis from './hooks/useLenis.js';
 import { TRACKING_MODES } from './core/3DMotionModeManager.js';
 import './App.css';
 
@@ -26,6 +31,17 @@ function App() {
   const [show3DTrackingHUD] = useState(true);
   const [trackingHUDMinimized, setTrackingHUDMinimized] = useState(false);
 
+  // Enhanced visual feedback state
+  const [showEnhancedVisualization, setShowEnhancedVisualization] = useState(true);
+  const [showConfidenceIndicator, setShowConfidenceIndicator] = useState(true);
+  const [confidenceIndicatorMinimized, setConfidenceIndicatorMinimized] = useState(false);
+  const [isInteractiveCalibrating, setIsInteractiveCalibrating] = useState(false);
+
+  // Mobile support state
+  const [isMobile, setIsMobile] = useState(false);
+  const [deviceOrientation, setDeviceOrientation] = useState('portrait');
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
+
   // Custom hooks for hand detection and 3D scene
   const {
     isLoading: handLoading,
@@ -36,7 +52,8 @@ function App() {
     startDetection,
     switchTrackingMode,
     startCalibration,
-    get3DModeStatus
+    get3DModeStatus,
+    initializeAdaptiveMapper
   } = useHandDetection();
 
   const {
@@ -46,6 +63,16 @@ function App() {
     initialize: initializeScene,
     updateCubeWithHand
   } = use3DScene(sceneCanvasRef);
+
+  // Initialize Lenis smooth scrolling
+  const { scrollTo, start: startLenis, stop: stopLenis } = useLenis({
+    duration: 1.2,
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    smooth: true,
+    mouseMultiplier: 1,
+    touchMultiplier: 2,
+    smoothTouch: false, // Disable on touch to avoid conflicts with hand tracking
+  });
 
   /**
    * Handle hand detection initialization
@@ -63,10 +90,20 @@ function App() {
       if (webcamRef && webcamRef.current && webcamRef.current.video) {
         const video = webcamRef.current.video;
 
-        const startDetectionWhenReady = () => {
+        const startDetectionWhenReady = async () => {
           if (video.readyState >= 2) {
             console.log('🎥 Video ready, starting detection loop...');
-            startDetection(video);
+
+            // Wait a bit to ensure hand detection is fully initialized
+            setTimeout(() => {
+              startDetection(video);
+            }, 500);
+
+            // Initialize adaptive mapper if scene is also ready
+            if (sceneCanvasRef.current) {
+              console.log('🎯 Initializing adaptive mapper with video and scene elements');
+              await initializeAdaptiveMapper(video, sceneCanvasRef.current);
+            }
           } else {
             console.log('⏳ Waiting for video to be ready...');
             video.addEventListener('loadeddata', startDetectionWhenReady, { once: true });
@@ -83,12 +120,24 @@ function App() {
   };
 
   /**
-   * Handle 3D scene initialization
+   * Handle 3D scene initialization with adaptive mapping
    */
   const handleSceneReady = async (canvasRef) => {
     sceneCanvasRef.current = canvasRef.current;
     try {
       await initializeScene();
+
+      // Initialize adaptive mapper if we have both video and scene elements
+      if (sceneCanvasRef.current) {
+        // Try to get video element from webcam ref (will be available after hand detection starts)
+        setTimeout(async () => {
+          const videoElement = document.querySelector('video'); // Find the webcam video element
+          if (videoElement && sceneCanvasRef.current) {
+            console.log('🎯 Initializing adaptive mapper with video and scene elements');
+            await initializeAdaptiveMapper(videoElement, sceneCanvasRef.current);
+          }
+        }, 1000); // Give time for webcam to initialize
+      }
     } catch (error) {
       console.error('Failed to initialize 3D scene:', error);
     }
@@ -120,20 +169,118 @@ function App() {
   };
 
   /**
-   * Initialize hand detection on mount
+   * Handle interactive calibration start
+   */
+  const handleInteractiveCalibration = () => {
+    setIsInteractiveCalibrating(true);
+  };
+
+  /**
+   * Handle calibration point collection
+   */
+  const handleCalibrationPoint = (point) => {
+    console.log('📍 Calibration point collected:', point);
+    // The point will be automatically processed by the adaptive mapper
+  };
+
+  /**
+   * Handle interactive calibration completion
+   */
+  const handleInteractiveCalibrationComplete = (points) => {
+    console.log('✅ Interactive calibration completed with', points.length, 'points');
+    setIsInteractiveCalibrating(false);
+  };
+
+  /**
+   * Handle interactive calibration cancellation
+   */
+  const handleInteractiveCalibrationCancel = () => {
+    console.log('❌ Interactive calibration cancelled');
+    setIsInteractiveCalibrating(false);
+  };
+
+  /**
+   * Handle mobile touch gestures
+   */
+  const handleTouchGesture = (gestureType, event) => {
+    console.log('👆 Touch gesture:', gestureType);
+    // Handle different gesture types
+    switch (gestureType) {
+      case 'tap':
+        // Single tap - could trigger interaction
+        break;
+      case 'pinch_in':
+        // Pinch in - could zoom out or scale down
+        break;
+      case 'pinch_out':
+        // Pinch out - could zoom in or scale up
+        break;
+      case 'two_finger_tap':
+        // Two finger tap - could reset or special action
+        break;
+      case 'multi_touch':
+        // Multi-touch - could open menu
+        setShowMobileSettings(true);
+        break;
+    }
+  };
+
+  /**
+   * Handle mobile settings
+   */
+  const handleMobileSettings = () => {
+    setShowMobileSettings(!showMobileSettings);
+  };
+
+  /**
+   * Detect mobile device on component mount
+   */
+  useEffect(() => {
+    const detectMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      setIsMobile(isMobileDevice || isTouch);
+
+      // Detect orientation
+      const updateOrientation = () => {
+        setDeviceOrientation(window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
+      };
+
+      updateOrientation();
+      window.addEventListener('orientationchange', updateOrientation);
+      window.addEventListener('resize', updateOrientation);
+
+      return () => {
+        window.removeEventListener('orientationchange', updateOrientation);
+        window.removeEventListener('resize', updateOrientation);
+      };
+    };
+
+    detectMobile();
+  }, []);
+
+  /**
+   * Initialize hand detection on mount (only if not already initialized)
    */
   useEffect(() => {
     const initializeOnMount = async () => {
       try {
-        console.log('🚀 Initializing hand detection system on mount...');
-        await initializeHand();
+        if (!handLoading && !handState.isTracking && !handState.isInitialized) {
+          console.log('🚀 Initializing hand detection system on mount...');
+          await initializeHand();
+        }
       } catch (error) {
         console.error('❌ Failed to initialize hand detection on mount:', error);
       }
     };
 
-    initializeOnMount();
-  }, [initializeHand]);
+    // Only initialize once
+    if (!handState.isInitialized) {
+      initializeOnMount();
+    }
+  }, [initializeHand, handLoading, handState.isTracking, handState.isInitialized]);
 
   /**
    * Update cube with hand gestures
@@ -169,6 +316,7 @@ function App() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
+        data-lenis-prevent // Prevent Lenis on main container to avoid conflicts with hand tracking
       >
         {/* Main Content */}
         <div className="flex h-screen gap-4 p-4">
@@ -181,10 +329,12 @@ function App() {
           >
             <HandTracker
               onHandDetection={handleHandDetection}
+              handState={handState}
               isLoading={handLoading}
               error={handError}
               width={320}
               height={240}
+              showHandOverlay={true}
             />
           </motion.div>
 
@@ -272,12 +422,29 @@ function App() {
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 1.0 }}
         >
-          <ThreeDMotionToggle
-            currentMode={currentTrackingMode}
-            onModeSwitch={handleModeSwitch}
-            onCalibrationStart={handleCalibrationStart}
-            modeStatus={get3DModeStatus()}
-          />
+          <div className="space-y-2">
+            <ThreeDMotionToggle
+              currentMode={currentTrackingMode}
+              onModeSwitch={handleModeSwitch}
+              onCalibrationStart={handleCalibrationStart}
+              modeStatus={get3DModeStatus()}
+            />
+
+            {/* Interactive Calibration Button */}
+            <motion.button
+              onClick={handleInteractiveCalibration}
+              disabled={!handState.isTracking}
+              className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                handState.isTracking
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+              whileHover={handState.isTracking ? { scale: 1.02 } : {}}
+              whileTap={handState.isTracking ? { scale: 0.98 } : {}}
+            >
+              🎯 Interactive Calibration
+            </motion.button>
+          </div>
         </motion.div>
 
         {/* 3D Tracking HUD */}
@@ -346,6 +513,58 @@ function App() {
             )}
           </div>
         </motion.div>
+
+        {/* Enhanced Hand Visualization */}
+        {showEnhancedVisualization && (
+          <EnhancedHandVisualization
+            handState={handState}
+            canvasRef={sceneCanvasRef}
+            showConfidenceIndicators={true}
+            showHandSkeleton={true}
+            showGestureIndicator={true}
+            showQualityMetrics={false}
+            className="z-20"
+          />
+        )}
+
+        {/* Confidence Indicator */}
+        {showConfidenceIndicator && (
+          <ConfidenceIndicator
+            handState={handState}
+            qualityMetrics={handState.qualityMetrics}
+            adaptiveMapping={{
+              isActive: true,
+              isCalibrated: false,
+              boundaryViolations: 0,
+              latency: performance?.detectionLatency || 0
+            }}
+            position="top-right"
+            minimized={confidenceIndicatorMinimized}
+            onToggleMinimize={() => setConfidenceIndicatorMinimized(!confidenceIndicatorMinimized)}
+            className="z-30"
+          />
+        )}
+
+        {/* Interactive Calibration Guide */}
+        <InteractiveCalibrationGuide
+          isActive={isInteractiveCalibrating}
+          handState={handState}
+          onCalibrationPoint={handleCalibrationPoint}
+          onComplete={handleInteractiveCalibrationComplete}
+          onCancel={handleInteractiveCalibrationCancel}
+          className="z-40"
+        />
+
+        {/* Mobile UI */}
+        <MobileUI
+          handState={handState}
+          onTouchGesture={handleTouchGesture}
+          onCalibration={handleInteractiveCalibration}
+          onSettings={handleMobileSettings}
+          isMobile={isMobile}
+          orientation={deviceOrientation}
+          className="z-50"
+        />
 
         {/* Calibration Modal */}
         <CalibrationModal

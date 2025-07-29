@@ -12,7 +12,7 @@ export class ThreeDCoordinateMapper {
       height: 30, // cm
       depth: 20   // cm
     };
-    
+
     // Virtual scene boundaries
     this.sceneBounds = {
       width: 80,
@@ -30,6 +30,42 @@ export class ThreeDCoordinateMapper {
     this.minConfidence = 0.6;
     this.maxJitter = 10; // pixels
     this.qualityScore = 1.0;
+
+    // Smart boundary detection
+    this.smartBoundaries = {
+      adaptive: true,
+      userMovementRange: {
+        minX: -40, maxX: 40,
+        minY: -30, maxY: 30,
+        minZ: -20, maxZ: 20
+      },
+      confidenceBasedExpansion: true,
+      temporalConsistency: true
+    };
+
+    // Enhanced calibration matrix
+    this.calibrationMatrix = {
+      transform: null,
+      inverse: null,
+      confidence: 0,
+      lastUpdate: 0
+    };
+
+    // Movement analysis for smart boundaries
+    this.movementAnalysis = {
+      samples: [],
+      maxSamples: 100,
+      analysisInterval: 5000, // 5 seconds
+      lastAnalysis: 0
+    };
+
+    // Performance tracking
+    this.performanceMetrics = {
+      mappingLatency: [],
+      accuracyScores: [],
+      boundaryViolations: 0,
+      adaptationCount: 0
+    };
   }
 
   /**
@@ -171,49 +207,181 @@ export class ThreeDCoordinateMapper {
   }
 
   /**
-   * Map hand position to 3D scene coordinates
+   * Map hand position to 3D scene coordinates with smart boundaries
    * @param {Object} handPosition - Hand position {x, y, z}
    * @param {number} confidence - Detection confidence
    * @returns {Object} Mapped 3D position with quality info
    */
   mapTo3DCoordinates(handPosition, confidence = 1.0) {
-    if (!this.isCalibrated || !handPosition) {
+    const startTime = performance.now();
+
+    if (!handPosition) {
       return {
         position: { x: 0, y: 0, z: 0 },
         quality: 0,
-        isValid: false
+        isValid: false,
+        metadata: { error: 'No hand position provided' }
       };
     }
 
-    // Calculate relative position from center
+    try {
+      let mappedPosition;
+
+      if (this.isCalibrated && this.calibrationData) {
+        // Use calibrated mapping
+        mappedPosition = this.applyCalibratedMapping(handPosition, confidence);
+      } else {
+        // Use proportional mapping with smart boundaries
+        mappedPosition = this.applyProportionalMappingWithSmartBoundaries(handPosition, confidence);
+      }
+
+      // Apply smart boundary detection
+      const boundedPosition = this.applySmartBoundaries(mappedPosition, confidence);
+
+      // Apply enhanced smoothing
+      const smoothedPosition = this.applyEnhancedSmoothingFilter(boundedPosition);
+
+      // Update movement analysis
+      this.updateMovementAnalysis(handPosition, smoothedPosition, confidence);
+
+      // Calculate enhanced quality score
+      const quality = this.calculateEnhancedQualityScore(handPosition, smoothedPosition, confidence);
+
+      // Record performance metrics
+      this.recordPerformanceMetrics(startTime, quality);
+
+      return {
+        position: smoothedPosition,
+        quality: quality,
+        isValid: quality > this.minConfidence,
+        metadata: {
+          originalPosition: handPosition,
+          confidence: confidence,
+          mappingType: this.isCalibrated ? 'calibrated' : 'proportional',
+          boundaryViolations: this.performanceMetrics.boundaryViolations,
+          latency: performance.now() - startTime
+        }
+      };
+
+    } catch (error) {
+      console.warn('⚠️ Error in 3D coordinate mapping:', error);
+      return {
+        position: { x: 0, y: 0, z: 0 },
+        quality: 0,
+        isValid: false,
+        metadata: { error: error.message }
+      };
+    }
+  }
+
+  /**
+   * Apply calibrated mapping using calibration matrix
+   * @param {Object} handPosition - Hand position
+   * @param {number} confidence - Detection confidence
+   * @returns {Object} Mapped position
+   */
+  applyCalibratedMapping(handPosition, confidence) {
     const center = this.calibrationData.centerPoint;
     const relativePos = {
       x: handPosition.x - center.x,
       y: handPosition.y - center.y,
-      z: handPosition.z - center.z
+      z: (handPosition.z || 0) - center.z
     };
 
-    // Apply scaling factors
+    // Apply enhanced calibration matrix if available
+    if (this.calibrationMatrix.transform) {
+      return this.applyCalibrationMatrix(relativePos);
+    }
+
+    // Fallback to scaling factors
     const scaledPos = {
       x: relativePos.x * this.calibrationData.scalingFactors.x,
       y: -relativePos.y * this.calibrationData.scalingFactors.y, // Invert Y for 3D space
       z: relativePos.z * this.calibrationData.scalingFactors.z
     };
 
-    // Apply boundaries
-    const boundedPos = this.applyBoundaries(scaledPos);
+    return scaledPos;
+  }
 
-    // Apply smoothing
-    const smoothedPos = this.applySmoothingFilter(boundedPos);
+  /**
+   * Apply proportional mapping with smart boundary adaptation
+   * @param {Object} handPosition - Hand position
+   * @param {number} confidence - Detection confidence
+   * @returns {Object} Mapped position
+   */
+  applyProportionalMappingWithSmartBoundaries(handPosition, confidence) {
+    // Use adaptive scene bounds based on user movement patterns
+    const adaptiveBounds = this.getAdaptiveSceneBounds();
 
-    // Calculate quality score
-    const quality = this.calculateQualityScore(handPosition, confidence);
+    // Map to adaptive boundaries
+    const mappedX = ((handPosition.x / 640) * adaptiveBounds.width) - (adaptiveBounds.width / 2);
+    const mappedY = ((1 - handPosition.y / 480) * adaptiveBounds.height) - (adaptiveBounds.height / 2);
+    const mappedZ = ((handPosition.z || 0) * adaptiveBounds.depth) - (adaptiveBounds.depth / 2);
 
-    return {
-      position: smoothedPos,
-      quality: quality,
-      isValid: quality > this.minConfidence
+    return { x: mappedX, y: mappedY, z: mappedZ };
+  }
+
+  /**
+   * Apply smart boundaries that adapt to user movement patterns
+   * @param {Object} position - Position to bound
+   * @param {number} confidence - Detection confidence
+   * @returns {Object} Bounded position
+   */
+  applySmartBoundaries(position, confidence) {
+    if (!this.smartBoundaries.adaptive) {
+      return this.applyBoundaries(position);
+    }
+
+    // Get current adaptive boundaries
+    const bounds = this.smartBoundaries.userMovementRange;
+
+    // Apply confidence-based boundary expansion
+    let expansionFactor = 1.0;
+    if (this.smartBoundaries.confidenceBasedExpansion && confidence > 0.8) {
+      expansionFactor = 1.1; // Allow slightly larger range for high-confidence detections
+    }
+
+    const boundedPosition = {
+      x: Math.max(bounds.minX * expansionFactor, Math.min(bounds.maxX * expansionFactor, position.x)),
+      y: Math.max(bounds.minY * expansionFactor, Math.min(bounds.maxY * expansionFactor, position.y)),
+      z: Math.max(bounds.minZ * expansionFactor, Math.min(bounds.maxZ * expansionFactor, position.z))
     };
+
+    // Check for boundary violations
+    if (position.x < bounds.minX || position.x > bounds.maxX ||
+        position.y < bounds.minY || position.y > bounds.maxY ||
+        position.z < bounds.minZ || position.z > bounds.maxZ) {
+      this.performanceMetrics.boundaryViolations++;
+    }
+
+    return boundedPosition;
+  }
+
+  /**
+   * Get adaptive scene bounds based on user movement analysis
+   * @returns {Object} Adaptive scene boundaries
+   */
+  getAdaptiveSceneBounds() {
+    // Analyze movement patterns to determine optimal boundaries
+    if (this.movementAnalysis.samples.length < 10) {
+      return this.sceneBounds; // Use default bounds
+    }
+
+    const samples = this.movementAnalysis.samples;
+    const xValues = samples.map(s => s.original.x).sort((a, b) => a - b);
+    const yValues = samples.map(s => s.original.y).sort((a, b) => a - b);
+
+    // Calculate 95th percentile boundaries
+    const percentile5 = Math.floor(samples.length * 0.05);
+    const percentile95 = Math.floor(samples.length * 0.95);
+
+    const adaptiveBounds = {
+      width: Math.max(this.sceneBounds.width * 0.8, (xValues[percentile95] - xValues[percentile5]) * 1.2),
+      height: Math.max(this.sceneBounds.height * 0.8, (yValues[percentile95] - yValues[percentile5]) * 1.2),
+      depth: this.sceneBounds.depth // Keep depth constant for now
+    };
+
+    return adaptiveBounds;
   }
 
   /**
@@ -291,6 +459,170 @@ export class ThreeDCoordinateMapper {
 
     this.qualityScore = quality;
     return quality;
+  }
+
+  /**
+   * Enhanced smoothing filter with adaptive parameters
+   * @param {Object} position - Position to smooth
+   * @returns {Object} Smoothed position
+   */
+  applyEnhancedSmoothingFilter(position) {
+    // Add to history
+    this.positionHistory.push(position);
+    if (this.positionHistory.length > this.maxHistorySize) {
+      this.positionHistory.shift();
+    }
+
+    // Adaptive smoothing based on movement speed
+    let adaptiveSmoothingFactor = this.smoothingFactor;
+
+    if (this.positionHistory.length > 1) {
+      const lastPos = this.positionHistory[this.positionHistory.length - 2];
+      const movementSpeed = Math.sqrt(
+        Math.pow(position.x - lastPos.x, 2) +
+        Math.pow(position.y - lastPos.y, 2) +
+        Math.pow(position.z - lastPos.z, 2)
+      );
+
+      // Increase smoothing for fast movements, decrease for slow movements
+      if (movementSpeed > 10) {
+        adaptiveSmoothingFactor = Math.min(0.8, this.smoothingFactor * 2);
+      } else if (movementSpeed < 2) {
+        adaptiveSmoothingFactor = Math.max(0.05, this.smoothingFactor * 0.5);
+      }
+    }
+
+    // Apply smoothing
+    const smoothed = {
+      x: this.previousPosition.x + (position.x - this.previousPosition.x) * adaptiveSmoothingFactor,
+      y: this.previousPosition.y + (position.y - this.previousPosition.y) * adaptiveSmoothingFactor,
+      z: this.previousPosition.z + (position.z - this.previousPosition.z) * adaptiveSmoothingFactor
+    };
+
+    this.previousPosition = smoothed;
+    return smoothed;
+  }
+
+  /**
+   * Update movement analysis for smart boundary detection
+   * @param {Object} originalPosition - Original hand position
+   * @param {Object} mappedPosition - Mapped 3D position
+   * @param {number} confidence - Detection confidence
+   */
+  updateMovementAnalysis(originalPosition, mappedPosition, confidence) {
+    const now = Date.now();
+
+    this.movementAnalysis.samples.push({
+      original: originalPosition,
+      mapped: mappedPosition,
+      confidence: confidence,
+      timestamp: now
+    });
+
+    // Keep sample size manageable
+    if (this.movementAnalysis.samples.length > this.movementAnalysis.maxSamples) {
+      this.movementAnalysis.samples.shift();
+    }
+
+    // Periodically analyze movement patterns
+    if (now - this.movementAnalysis.lastAnalysis > this.movementAnalysis.analysisInterval) {
+      this.analyzeMovementPatterns();
+      this.movementAnalysis.lastAnalysis = now;
+    }
+  }
+
+  /**
+   * Calculate enhanced quality score with multiple factors
+   * @param {Object} originalPosition - Original hand position
+   * @param {Object} mappedPosition - Mapped position
+   * @param {number} confidence - Detection confidence
+   * @returns {number} Quality score (0-1)
+   */
+  calculateEnhancedQualityScore(originalPosition, mappedPosition, confidence) {
+    let quality = confidence;
+
+    // Factor 1: Jitter detection
+    if (this.positionHistory.length > 1) {
+      const lastPos = this.positionHistory[this.positionHistory.length - 2];
+      const jitter = Math.sqrt(
+        Math.pow(mappedPosition.x - lastPos.x, 2) +
+        Math.pow(mappedPosition.y - lastPos.y, 2) +
+        Math.pow(mappedPosition.z - lastPos.z, 2)
+      );
+
+      if (jitter > this.maxJitter) {
+        quality *= 0.7; // Significant penalty for jitter
+      } else if (jitter > this.maxJitter * 0.5) {
+        quality *= 0.9; // Minor penalty for moderate jitter
+      }
+    }
+
+    // Factor 2: Boundary compliance
+    const bounds = this.smartBoundaries.userMovementRange;
+    const withinBounds = (
+      mappedPosition.x >= bounds.minX && mappedPosition.x <= bounds.maxX &&
+      mappedPosition.y >= bounds.minY && mappedPosition.y <= bounds.maxY &&
+      mappedPosition.z >= bounds.minZ && mappedPosition.z <= bounds.maxZ
+    );
+
+    if (!withinBounds) {
+      quality *= 0.8; // Penalty for out-of-bounds positions
+    }
+
+    return Math.max(0, Math.min(1, quality));
+  }
+
+  /**
+   * Record performance metrics
+   * @param {number} startTime - Processing start time
+   * @param {number} quality - Quality score
+   */
+  recordPerformanceMetrics(startTime, quality) {
+    const latency = performance.now() - startTime;
+
+    this.performanceMetrics.mappingLatency.push(latency);
+    this.performanceMetrics.accuracyScores.push(quality);
+
+    // Keep metrics arrays manageable
+    if (this.performanceMetrics.mappingLatency.length > 100) {
+      this.performanceMetrics.mappingLatency.shift();
+    }
+    if (this.performanceMetrics.accuracyScores.length > 100) {
+      this.performanceMetrics.accuracyScores.shift();
+    }
+  }
+
+  /**
+   * Analyze movement patterns to update smart boundaries
+   */
+  analyzeMovementPatterns() {
+    if (this.movementAnalysis.samples.length < 20) return;
+
+    const highConfidenceSamples = this.movementAnalysis.samples.filter(s => s.confidence > 0.7);
+    if (highConfidenceSamples.length < 10) return;
+
+    // Calculate movement range
+    const xValues = highConfidenceSamples.map(s => s.mapped.x);
+    const yValues = highConfidenceSamples.map(s => s.mapped.y);
+    const zValues = highConfidenceSamples.map(s => s.mapped.z);
+
+    const xRange = { min: Math.min(...xValues), max: Math.max(...xValues) };
+    const yRange = { min: Math.min(...yValues), max: Math.max(...yValues) };
+    const zRange = { min: Math.min(...zValues), max: Math.max(...zValues) };
+
+    // Update smart boundaries with some padding
+    const padding = 5;
+    this.smartBoundaries.userMovementRange = {
+      minX: xRange.min - padding,
+      maxX: xRange.max + padding,
+      minY: yRange.min - padding,
+      maxY: yRange.max + padding,
+      minZ: zRange.min - padding,
+      maxZ: zRange.max + padding
+    };
+
+    this.performanceMetrics.adaptationCount++;
+    console.log('🔄 Smart boundaries updated based on movement analysis');
   }
 
   /**

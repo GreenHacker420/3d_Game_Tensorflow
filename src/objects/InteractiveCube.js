@@ -255,7 +255,7 @@ export class InteractiveCube {
   }
 
   /**
-   * Map hand position to world coordinates
+   * Map hand position to world coordinates with adaptive mapping
    * @param {Object} handState - Hand state data
    * @param {boolean} use3DMode - Whether to use 3D motion mode mapping
    * @returns {Vector3} World position
@@ -269,16 +269,75 @@ export class InteractiveCube {
         handState.position.z
       );
     } else {
-      // Legacy 2D mapping
-      const sceneWidth = this.boundarySize.width;
-      const sceneHeight = this.boundarySize.height;
+      // Try to get adaptive mapper from scene
+      const adaptiveMapper = this.scene.getAdaptiveMapper?.();
 
-      const mappedX = ((handState.position.x / 640) * sceneWidth) - (sceneWidth / 2);
-      const mappedY = ((1 - handState.position.y / 480) * sceneHeight) - (sceneHeight / 2);
-      const mappedZ = (handState.fingerSpread / 200) * this.boundarySize.depth - (this.boundarySize.depth / 2);
+      if (adaptiveMapper && adaptiveMapper.isMapperInitialized) {
+        try {
+          // Use adaptive mapping system
+          const mappingResult = adaptiveMapper.mapCoordinates(
+            handState.position,
+            handState.confidence || 1.0
+          );
 
-      return new Vector3(mappedX, mappedY, mappedZ);
+          if (mappingResult.isValid) {
+            return new Vector3(
+              mappingResult.position.x,
+              mappingResult.position.y,
+              mappingResult.position.z
+            );
+          }
+        } catch (error) {
+          console.warn('⚠️ Adaptive mapping failed in InteractiveCube, falling back to legacy:', error);
+        }
+      }
+
+      // Fallback to enhanced legacy mapping
+      return this.mapHandToWorldPositionLegacy(handState);
     }
+  }
+
+  /**
+   * Enhanced legacy mapping with dynamic resolution detection
+   * @param {Object} handState - Hand state data
+   * @returns {Vector3} World position
+   */
+  mapHandToWorldPositionLegacy(handState) {
+    // Try to detect actual video resolution from scene
+    let videoWidth = 640;
+    let videoHeight = 480;
+
+    // Check if scene has video element reference
+    if (this.scene.videoElement) {
+      videoWidth = this.scene.videoElement.videoWidth || this.scene.videoElement.width || 640;
+      videoHeight = this.scene.videoElement.videoHeight || this.scene.videoElement.height || 480;
+    }
+
+    // Enhanced mapping with aspect ratio correction
+    const sceneWidth = this.boundarySize.width;
+    const sceneHeight = this.boundarySize.height;
+
+    // Calculate aspect ratio correction
+    const videoAspect = videoWidth / videoHeight;
+    const sceneAspect = sceneWidth / sceneHeight;
+    const aspectCorrection = videoAspect / sceneAspect;
+
+    // Apply aspect ratio correction to X coordinate
+    const correctedX = handState.position.x * aspectCorrection;
+
+    const mappedX = ((correctedX / videoWidth) * sceneWidth) - (sceneWidth / 2);
+    const mappedY = ((1 - handState.position.y / videoHeight) * sceneHeight) - (sceneHeight / 2);
+
+    // Enhanced Z mapping based on finger spread and hand orientation
+    let mappedZ = (handState.fingerSpread / 200) * this.boundarySize.depth - (this.boundarySize.depth / 2);
+
+    // Add hand orientation influence if available
+    if (handState.handOrientation && handState.handOrientation.pitch) {
+      const pitchInfluence = Math.sin(handState.handOrientation.pitch) * 10;
+      mappedZ += pitchInfluence;
+    }
+
+    return new Vector3(mappedX, mappedY, mappedZ);
   }
 
   /**

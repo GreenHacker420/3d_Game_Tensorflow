@@ -33,11 +33,14 @@ export const use3DScene = (canvasRef) => {
     setError(null);
 
     try {
+      console.log('🎬 Initializing 3D scene manager...');
       // Initialize scene manager
       sceneManagerRef.current = new SceneManager(canvasRef.current);
       sceneManagerRef.current.setErrorCallback(setError);
-      
+
+      console.log('🎬 Loading 3D scene...');
       const scene = await sceneManagerRef.current.initialize();
+      console.log('✅ 3D scene loaded');
 
       // Initialize camera
       cameraControllerRef.current = new CameraController(scene);
@@ -143,6 +146,26 @@ export const use3DScene = (canvasRef) => {
   }, []);
 
   /**
+   * Set adaptive mapper for the scene
+   * @param {Object} adaptiveMapper - Adaptive mapper instance
+   */
+  const setAdaptiveMapper = useCallback((adaptiveMapper) => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setAdaptiveMapper(adaptiveMapper);
+    }
+  }, []);
+
+  /**
+   * Set video element for adaptive mapping
+   * @param {HTMLVideoElement} videoElement - Video element
+   */
+  const setVideoElement = useCallback((videoElement) => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setVideoElement(videoElement);
+    }
+  }, []);
+
+  /**
    * Get cube instance
    */
   const getCube = useCallback(() => {
@@ -212,7 +235,7 @@ export const use3DScene = (canvasRef) => {
     isLoading,
     error,
     cubeInfo,
-    
+
     // Methods
     initialize,
     updateCubeWithHand,
@@ -224,7 +247,11 @@ export const use3DScene = (canvasRef) => {
     getScene,
     getCube,
     resize,
-    
+
+    // Adaptive mapping methods
+    setAdaptiveMapper,
+    setVideoElement,
+
     // Scene components (for advanced usage)
     sceneManager: sceneManagerRef.current,
     cameraController: cameraControllerRef.current,

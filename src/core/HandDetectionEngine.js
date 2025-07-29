@@ -1,5 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 import * as handpose from '@tensorflow-models/handpose';
+import { getMemoryPoolManager } from './MemoryPoolManager.js';
 
 /**
  * Core hand detection engine using MediaPipe/TensorFlow
@@ -12,6 +13,51 @@ export class HandDetectionEngine {
     this.isLoading = false;
     this.onStateChange = null;
     this.onError = null;
+
+    // Enhanced adaptive parameters
+    this.adaptiveParams = {
+      baseConfidence: 0.7,
+      lightingBoost: 0.0,
+      stabilityFilter: 0.8,
+      frameHistory: [],
+      maxHistorySize: 10,
+      movementHistory: [],
+      maxMovementHistory: 20
+    };
+
+    // Lighting analysis
+    this.lightingAnalysis = {
+      brightness: 0.5,
+      contrast: 0.5,
+      stability: 1.0,
+      lastAnalysis: 0,
+      analysisInterval: 1000 // Analyze every 1 second
+    };
+
+    // Movement tracking
+    this.movementTracking = {
+      speed: 0,
+      acceleration: 0,
+      direction: { x: 0, y: 0 },
+      lastPosition: null,
+      lastTimestamp: 0
+    };
+
+    // Performance optimization
+    this.performanceOptimization = {
+      adaptiveFrameRate: 30,
+      targetFrameRate: 30,
+      skipFrameCount: 0,
+      maxSkipFrames: 2,
+      lastProcessTime: 0
+    };
+
+    // WebWorker manager for offloading processing (only initialize once)
+    this.webWorkerManager = null;
+    this.useWebWorker = false; // Will be enabled after successful initialization
+
+    // Memory pool manager for performance optimization
+    this.memoryPool = getMemoryPoolManager();
   }
 
   /**
@@ -26,27 +72,47 @@ export class HandDetectionEngine {
     this.notifyStateChange({ isLoading: true });
 
     try {
+      console.log('🔧 Configuring TensorFlow.js...');
       // Configure TensorFlow.js for optimal performance
       await tf.ready();
-      
+      console.log('✅ TensorFlow.js ready');
+
+      console.log('📦 Loading handpose model...');
       // Load the handpose model (using default parameters as custom parameters may not be supported)
       this.model = await handpose.load();
+      console.log('✅ Handpose model loaded');
 
-      // Initialize adaptive parameters
-      this.adaptiveParams = {
-        baseConfidence: 0.7,
-        lightingBoost: 0.0,
-        stabilityFilter: 0.8,
-        frameHistory: [],
-        maxHistorySize: 10
-      };
+      // Enhanced adaptive parameters are now initialized in constructor
+
+      // Try to initialize WebWorker for better performance (only in development)
+      if (import.meta.env.DEV) {
+        try {
+          const { default: WebWorkerManager } = await import('./WebWorkerManager.js');
+          this.webWorkerManager = new WebWorkerManager({
+            enableFallback: true,
+            maxConcurrentFrames: 2
+          });
+
+          const workerInitialized = await this.webWorkerManager.initialize();
+          if (workerInitialized) {
+            this.useWebWorker = true;
+            console.log('✅ WebWorker initialized for hand detection');
+          } else {
+            console.log('⚠️ WebWorker initialization failed, using main thread');
+          }
+        } catch (error) {
+          console.warn('⚠️ WebWorker not available, using main thread:', error);
+        }
+      } else {
+        console.log('🔧 Production build: Using main thread processing for stability');
+      }
 
       this.isInitialized = true;
       this.isLoading = false;
-      
-      this.notifyStateChange({ 
-        isLoading: false, 
-        isInitialized: true 
+
+      this.notifyStateChange({
+        isLoading: false,
+        isInitialized: true
       });
 
       console.log('✅ Hand detection model loaded successfully');
@@ -79,20 +145,138 @@ export class HandDetectionEngine {
     }
 
     try {
+      const startTime = performance.now();
+
+      // Check if we should skip this frame for performance
+      if (this.shouldSkipFrame()) {
+        return this.getLastValidPrediction();
+      }
+
       // Analyze lighting conditions for adaptive detection
       const lightingCondition = this.analyzeLightingConditions(videoElement);
 
-      // Adjust detection parameters based on lighting
-      this.adaptDetectionParameters(lightingCondition);
+      // Calculate movement speed for adaptive processing
+      const movementSpeed = this.calculateMovementSpeed();
+
+      // Adjust detection parameters based on conditions
+      this.adaptDetectionParameters(lightingCondition, movementSpeed);
 
       const predictions = await this.model.estimateHands(videoElement);
 
-      // Apply stability filtering to predictions
-      return this.applyStabilityFilter(predictions);
+      // Apply enhanced stability filtering
+      const filteredPredictions = this.applyEnhancedStabilityFilter(predictions);
+
+      // Update movement tracking
+      this.updateMovementTracking(filteredPredictions);
+
+      // Record performance metrics
+      this.updatePerformanceMetrics(startTime);
+
+      return filteredPredictions;
     } catch (error) {
       console.warn('Hand detection error:', error);
+      return this.getLastValidPrediction();
+    }
+  }
+
+  /**
+   * Enhanced hand detection with adaptive parameters and WebWorker support
+   * @param {HTMLVideoElement} videoElement - Video element to analyze
+   * @returns {Promise<Array>} Array of hand predictions with enhanced processing
+   */
+  async detectHandsAdaptive(videoElement) {
+    try {
+      // Use WebWorker if available and enabled
+      if (this.useWebWorker && this.webWorkerManager.isInitialized) {
+        return await this.detectHandsWithWorker(videoElement);
+      }
+
+      // Fallback to main thread processing
+      return await this.detectHandsMainThread(videoElement);
+    } catch (error) {
+      console.warn('Adaptive hand detection error:', error);
+      return this.detectHands(videoElement); // Fallback to standard detection
+    }
+  }
+
+  /**
+   * Detect hands using WebWorker
+   * @param {HTMLVideoElement} videoElement - Video element to analyze
+   * @returns {Promise<Array>} Array of hand predictions
+   */
+  async detectHandsWithWorker(videoElement) {
+    try {
+      const predictions = await this.webWorkerManager.processFrame(videoElement);
+
+      // Convert worker format to expected format if needed
+      return this.processWorkerPredictions(predictions);
+    } catch (error) {
+      console.warn('WebWorker detection failed, falling back to main thread:', error);
+      this.useWebWorker = false; // Disable worker for this session
+      return this.detectHandsMainThread(videoElement);
+    }
+  }
+
+  /**
+   * Detect hands on main thread with enhanced processing
+   * @param {HTMLVideoElement} videoElement - Video element to analyze
+   * @returns {Promise<Array>} Array of hand predictions
+   */
+  async detectHandsMainThread(videoElement) {
+    const startTime = performance.now();
+
+    try {
+      // Check if we should skip this frame for performance
+      if (this.shouldSkipFrame()) {
+        return this.getLastValidPrediction();
+      }
+
+      // Analyze lighting conditions for adaptive detection
+      const lightingCondition = this.analyzeLightingConditions(videoElement);
+
+      // Calculate movement speed for adaptive processing
+      const movementSpeed = this.calculateMovementSpeed();
+
+      // Adjust detection parameters based on conditions
+      this.adaptDetectionParameters(lightingCondition, movementSpeed);
+
+      // Use the main model for detection
+      const predictions = await this.model.estimateHands(videoElement);
+
+      // Apply enhanced stability filtering
+      const filteredPredictions = this.applyEnhancedStabilityFilter(predictions);
+
+      // Update movement tracking
+      this.updateMovementTracking(filteredPredictions);
+
+      // Update adaptive parameters based on results
+      this.updateAdaptiveParameters(enhancedPredictions, performance.now() - startTime);
+
+      return filteredPredictions;
+    } catch (error) {
+      console.warn('Main thread detection error:', error);
+      return this.detectHands(videoElement); // Fallback to basic detection
+    }
+  }
+
+  /**
+   * Process predictions from WebWorker
+   * @param {Array} workerPredictions - Predictions from worker
+   * @returns {Array} Processed predictions
+   */
+  processWorkerPredictions(workerPredictions) {
+    if (!workerPredictions || workerPredictions.length === 0) {
       return [];
     }
+
+    // Worker already provides processed data, just ensure format compatibility
+    return workerPredictions.map(prediction => ({
+      ...prediction,
+      // Ensure all expected properties are present
+      landmarks: prediction.landmarks || [],
+      handInViewConfidence: prediction.handInViewConfidence || 0,
+      boundingBox: prediction.boundingBox || { topLeft: [0, 0], bottomRight: [0, 0] }
+    }));
   }
 
   /**
@@ -424,6 +608,363 @@ export class HandDetectionEngine {
   }
 
   /**
+   * Check if current frame should be skipped for performance optimization
+   * @returns {boolean} True if frame should be skipped
+   */
+  shouldSkipFrame() {
+    const now = performance.now();
+    const timeSinceLastProcess = now - this.performanceOptimization.lastProcessTime;
+    const targetInterval = 1000 / this.performanceOptimization.adaptiveFrameRate;
+
+    if (timeSinceLastProcess < targetInterval) {
+      this.performanceOptimization.skipFrameCount++;
+      return this.performanceOptimization.skipFrameCount <= this.performanceOptimization.maxSkipFrames;
+    }
+
+    this.performanceOptimization.skipFrameCount = 0;
+    this.performanceOptimization.lastProcessTime = now;
+    return false;
+  }
+
+  /**
+   * Get last valid prediction for frame skipping
+   * @returns {Array} Last valid hand predictions
+   */
+  getLastValidPrediction() {
+    if (this.adaptiveParams.frameHistory.length > 0) {
+      return this.adaptiveParams.frameHistory[this.adaptiveParams.frameHistory.length - 1];
+    }
+    return [];
+  }
+
+  /**
+   * Calculate movement speed from recent hand positions
+   * @returns {number} Movement speed in pixels per second
+   */
+  calculateMovementSpeed() {
+    if (this.adaptiveParams.movementHistory.length < 2) {
+      return 0;
+    }
+
+    const recent = this.adaptiveParams.movementHistory.slice(-2);
+    const timeDiff = recent[1].timestamp - recent[0].timestamp;
+
+    if (timeDiff === 0) return 0;
+
+    const distance = Math.sqrt(
+      Math.pow(recent[1].x - recent[0].x, 2) +
+      Math.pow(recent[1].y - recent[0].y, 2)
+    );
+
+    return (distance / timeDiff) * 1000; // Convert to pixels per second
+  }
+
+  /**
+   * Enhanced stability filter with temporal consistency
+   * @param {Array} predictions - Raw hand predictions
+   * @returns {Array} Filtered predictions
+   */
+  applyEnhancedStabilityFilter(predictions) {
+    // Store current predictions in history
+    this.adaptiveParams.frameHistory.push(predictions);
+    if (this.adaptiveParams.frameHistory.length > this.adaptiveParams.maxHistorySize) {
+      this.adaptiveParams.frameHistory.shift();
+    }
+
+    if (predictions.length === 0) {
+      // No current detection - check for temporal consistency
+      const recentDetections = this.adaptiveParams.frameHistory.slice(-3);
+      const hasConsistentDetections = recentDetections.filter(p => p.length > 0).length >= 2;
+
+      if (hasConsistentDetections) {
+        // Return interpolated position based on recent detections
+        return this.interpolateFromHistory();
+      }
+      return [];
+    }
+
+    // Apply confidence-based filtering
+    const filteredPredictions = predictions.filter(prediction => {
+      const adjustedThreshold = this.adaptiveParams.baseConfidence + this.adaptiveParams.lightingBoost;
+      return prediction.handInViewConfidence >= adjustedThreshold;
+    });
+
+    // Apply temporal smoothing
+    return this.applyTemporalSmoothing(filteredPredictions);
+  }
+
+  /**
+   * Update movement tracking data
+   * @param {Array} predictions - Current hand predictions
+   */
+  updateMovementTracking(predictions) {
+    if (predictions.length === 0) return;
+
+    const now = Date.now();
+    const handCenter = this.calculateHandCenter(predictions[0].landmarks);
+
+    if (handCenter) {
+      // Update movement history
+      this.adaptiveParams.movementHistory.push({
+        x: handCenter.x,
+        y: handCenter.y,
+        timestamp: now
+      });
+
+      if (this.adaptiveParams.movementHistory.length > this.adaptiveParams.maxMovementHistory) {
+        this.adaptiveParams.movementHistory.shift();
+      }
+
+      // Update movement tracking metrics
+      if (this.movementTracking.lastPosition) {
+        const timeDiff = now - this.movementTracking.lastTimestamp;
+        if (timeDiff > 0) {
+          const distance = Math.sqrt(
+            Math.pow(handCenter.x - this.movementTracking.lastPosition.x, 2) +
+            Math.pow(handCenter.y - this.movementTracking.lastPosition.y, 2)
+          );
+
+          const currentSpeed = (distance / timeDiff) * 1000;
+          this.movementTracking.speed = this.movementTracking.speed * 0.8 + currentSpeed * 0.2; // Smooth speed
+
+          // Calculate acceleration
+          const speedDiff = currentSpeed - this.movementTracking.speed;
+          this.movementTracking.acceleration = speedDiff / timeDiff * 1000;
+
+          // Calculate direction
+          this.movementTracking.direction = {
+            x: (handCenter.x - this.movementTracking.lastPosition.x) / distance || 0,
+            y: (handCenter.y - this.movementTracking.lastPosition.y) / distance || 0
+          };
+        }
+      }
+
+      this.movementTracking.lastPosition = handCenter;
+      this.movementTracking.lastTimestamp = now;
+    }
+  }
+
+  /**
+   * Update performance metrics
+   * @param {number} startTime - Processing start time
+   */
+  updatePerformanceMetrics(startTime) {
+    const processingTime = performance.now() - startTime;
+
+    // Adjust adaptive frame rate based on processing time
+    const targetProcessingTime = 1000 / this.performanceOptimization.targetFrameRate;
+
+    if (processingTime > targetProcessingTime * 1.5) {
+      // Processing is too slow, reduce frame rate
+      this.performanceOptimization.adaptiveFrameRate = Math.max(15, this.performanceOptimization.adaptiveFrameRate - 2);
+    } else if (processingTime < targetProcessingTime * 0.7) {
+      // Processing is fast enough, can increase frame rate
+      this.performanceOptimization.adaptiveFrameRate = Math.min(60, this.performanceOptimization.adaptiveFrameRate + 1);
+    }
+  }
+
+  /**
+   * Interpolate hand position from history when current detection fails
+   * @returns {Array} Interpolated predictions
+   */
+  interpolateFromHistory() {
+    const validDetections = this.adaptiveParams.frameHistory.filter(p => p.length > 0);
+    if (validDetections.length < 2) return [];
+
+    // Simple interpolation based on last two valid detections
+    const last = validDetections[validDetections.length - 1][0];
+    const secondLast = validDetections[validDetections.length - 2][0];
+
+    if (!last || !secondLast) return [];
+
+    // Create interpolated prediction
+    const interpolated = {
+      handInViewConfidence: Math.max(0.5, (last.handInViewConfidence + secondLast.handInViewConfidence) / 2),
+      landmarks: last.landmarks.map((landmark, index) => {
+        const secondLastLandmark = secondLast.landmarks[index];
+        return [
+          (landmark[0] + secondLastLandmark[0]) / 2,
+          (landmark[1] + secondLastLandmark[1]) / 2,
+          (landmark[2] + secondLastLandmark[2]) / 2
+        ];
+      }),
+      boundingBox: {
+        topLeft: [
+          (last.boundingBox.topLeft[0] + secondLast.boundingBox.topLeft[0]) / 2,
+          (last.boundingBox.topLeft[1] + secondLast.boundingBox.topLeft[1]) / 2
+        ],
+        bottomRight: [
+          (last.boundingBox.bottomRight[0] + secondLast.boundingBox.bottomRight[0]) / 2,
+          (last.boundingBox.bottomRight[1] + secondLast.boundingBox.bottomRight[1]) / 2
+        ]
+      }
+    };
+
+    return [interpolated];
+  }
+
+  /**
+   * Apply temporal smoothing to predictions
+   * @param {Array} predictions - Current predictions
+   * @returns {Array} Smoothed predictions
+   */
+  applyTemporalSmoothing(predictions) {
+    if (predictions.length === 0 || this.adaptiveParams.frameHistory.length < 2) {
+      return predictions;
+    }
+
+    const lastValidPredictions = this.adaptiveParams.frameHistory
+      .slice(-3)
+      .filter(p => p.length > 0)
+      .pop();
+
+    if (!lastValidPredictions || lastValidPredictions.length === 0) {
+      return predictions;
+    }
+
+    // Apply smoothing to landmarks
+    const smoothingFactor = 0.3;
+    const smoothedPredictions = predictions.map((prediction, predIndex) => {
+      if (predIndex >= lastValidPredictions.length) return prediction;
+
+      const lastPrediction = lastValidPredictions[predIndex];
+      const smoothedLandmarks = prediction.landmarks.map((landmark, landmarkIndex) => {
+        const lastLandmark = lastPrediction.landmarks[landmarkIndex];
+        return [
+          landmark[0] * smoothingFactor + lastLandmark[0] * (1 - smoothingFactor),
+          landmark[1] * smoothingFactor + lastLandmark[1] * (1 - smoothingFactor),
+          landmark[2] * smoothingFactor + lastLandmark[2] * (1 - smoothingFactor)
+        ];
+      });
+
+      return {
+        ...prediction,
+        landmarks: smoothedLandmarks
+      };
+    });
+
+    return smoothedPredictions;
+  }
+
+  /**
+   * Enhanced lighting analysis with stability tracking
+   * @param {HTMLVideoElement} videoElement - Video element to analyze
+   * @returns {Object} Lighting condition analysis
+   */
+  analyzeLightingConditions(videoElement) {
+    const now = Date.now();
+
+    // Only analyze lighting periodically to save performance
+    if (now - this.lightingAnalysis.lastAnalysis < this.lightingAnalysis.analysisInterval) {
+      return {
+        brightness: this.lightingAnalysis.brightness,
+        contrast: this.lightingAnalysis.contrast,
+        stability: this.lightingAnalysis.stability
+      };
+    }
+
+    try {
+      // Create a temporary canvas to analyze the video frame
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = 160; // Small size for performance
+      canvas.height = 120;
+
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Calculate brightness and contrast
+      let totalBrightness = 0;
+      let brightnessValues = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const brightness = (r + g + b) / 3;
+
+        totalBrightness += brightness;
+        brightnessValues.push(brightness);
+      }
+
+      const avgBrightness = totalBrightness / (data.length / 4);
+      const normalizedBrightness = avgBrightness / 255;
+
+      // Calculate contrast (standard deviation of brightness)
+      const variance = brightnessValues.reduce((sum, brightness) => {
+        return sum + Math.pow(brightness - avgBrightness, 2);
+      }, 0) / brightnessValues.length;
+
+      const contrast = Math.sqrt(variance) / 255;
+
+      // Update lighting analysis
+      this.lightingAnalysis.brightness = normalizedBrightness;
+      this.lightingAnalysis.contrast = contrast;
+      this.lightingAnalysis.lastAnalysis = now;
+
+      // Calculate stability (how much lighting has changed)
+      const brightnessChange = Math.abs(normalizedBrightness - (this.lightingAnalysis.brightness || 0.5));
+      this.lightingAnalysis.stability = Math.max(0, 1 - brightnessChange * 2);
+
+      return {
+        brightness: normalizedBrightness,
+        contrast: contrast,
+        stability: this.lightingAnalysis.stability
+      };
+
+    } catch (error) {
+      console.warn('Lighting analysis failed:', error);
+      return {
+        brightness: 0.5,
+        contrast: 0.5,
+        stability: 1.0
+      };
+    }
+  }
+
+  /**
+   * Adapt detection parameters based on lighting and movement
+   * @param {Object} lightingCondition - Current lighting analysis
+   * @param {number} movementSpeed - Current movement speed
+   */
+  adaptDetectionParameters(lightingCondition, movementSpeed = 0) {
+    // Adjust confidence threshold based on lighting
+    if (lightingCondition.brightness < 0.3) {
+      // Low light - reduce confidence threshold and add boost
+      this.adaptiveParams.lightingBoost = -0.1;
+    } else if (lightingCondition.brightness > 0.8) {
+      // Bright light - might cause overexposure
+      this.adaptiveParams.lightingBoost = -0.05;
+    } else {
+      // Good lighting
+      this.adaptiveParams.lightingBoost = 0.0;
+    }
+
+    // Adjust stability filter based on movement speed
+    if (movementSpeed > 100) {
+      // Fast movement - increase stability filtering
+      this.adaptiveParams.stabilityFilter = 0.9;
+    } else if (movementSpeed < 20) {
+      // Slow movement - reduce stability filtering for responsiveness
+      this.adaptiveParams.stabilityFilter = 0.6;
+    } else {
+      // Normal movement
+      this.adaptiveParams.stabilityFilter = 0.8;
+    }
+
+    // Adjust confidence threshold based on contrast
+    if (lightingCondition.contrast < 0.2) {
+      // Low contrast - reduce confidence threshold
+      this.adaptiveParams.baseConfidence = 0.6;
+    } else {
+      // Good contrast
+      this.adaptiveParams.baseConfidence = 0.7;
+    }
+  }
+
+  /**
    * Dispose resources
    */
   dispose() {
@@ -431,8 +972,15 @@ export class HandDetectionEngine {
     // Just clear the reference
     this.model = null;
 
+    // Dispose WebWorker manager
+    if (this.webWorkerManager) {
+      this.webWorkerManager.dispose();
+      this.webWorkerManager = null;
+    }
+
     this.isInitialized = false;
     this.isLoading = false;
+    this.useWebWorker = false;
     this.onStateChange = null;
     this.onError = null;
 

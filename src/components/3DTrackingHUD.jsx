@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TRACKING_MODES } from '../core/3DMotionModeManager.js';
+import DraggableWrapper from './DraggableWrapper.jsx';
 
 /**
  * 3D Tracking HUD Component
@@ -48,12 +49,17 @@ const ThreeDTrackingHUD = ({
 
   if (isMinimized) {
     return (
-      <motion.div
-        className={`3d-tracking-hud minimized ${className}`}
-        onClick={onToggleMinimize}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+      <DraggableWrapper
+        initialPosition={{ x: 20, y: 400 }}
+        zIndex={10}
+        className="3d-tracking-hud-draggable minimized"
       >
+        <motion.div
+          className={`3d-tracking-hud minimized ${className}`}
+          onClick={onToggleMinimize}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
         <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-600 rounded-lg p-2 cursor-pointer">
           <div className="flex items-center gap-2">
             <span className="text-lg">{is3DMode ? '🎯' : '👋'}</span>
@@ -65,16 +71,22 @@ const ThreeDTrackingHUD = ({
           </div>
         </div>
       </motion.div>
+      </DraggableWrapper>
     );
   }
 
   return (
-    <motion.div
-      className={`3d-tracking-hud ${className}`}
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.3 }}
+    <DraggableWrapper
+      initialPosition={{ x: 20, y: 400 }}
+      zIndex={10}
+      className="3d-tracking-hud-draggable"
     >
+      <motion.div
+        className={`3d-tracking-hud ${className}`}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.3 }}
+      >
       <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-600 rounded-lg p-4 min-w-64">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
@@ -259,6 +271,7 @@ const ThreeDTrackingHUD = ({
         )}
       </div>
     </motion.div>
+    </DraggableWrapper>
   );
 };
 

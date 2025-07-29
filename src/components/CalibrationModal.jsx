@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal, Button, Progress, Steps, Typography, Alert, Badge } from 'antd';
+import {
+  RocketOutlined,
+  WarningOutlined,
+  CloseOutlined,
+  CheckCircleOutlined
+} from '@ant-design/icons';
 
 /**
  * 3D Motion Calibration Modal
@@ -147,102 +154,115 @@ const CalibrationModal = ({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          className="bg-gray-800 rounded-xl border border-gray-600 p-6 max-w-md w-full mx-4 shadow-2xl"
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              🎯 3D Motion Calibration
-            </h2>
-            <button
-              className="text-gray-400 hover:text-white transition-colors"
-              onClick={onClose}
-            >
-              ✕
-            </button>
-          </div>
+    <Modal
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>🎯</span>
+          <span style={{ color: '#ffffff' }}>3D Motion Calibration</span>
+        </div>
+      }
+      open={isOpen}
+      onCancel={onClose}
+      footer={null}
+      width={500}
+      centered
+      maskClosable={false}
+      closeIcon={<CloseOutlined style={{ color: '#9ca3af' }} />}
+      styles={{
+        mask: { backgroundColor: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(4px)' },
+        content: {
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        },
+        header: {
+          backgroundColor: 'transparent',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        },
+      }}
+    >
 
-          {!isCalibrating ? (
-            /* Welcome Screen */
-            <div className="text-center space-y-4">
-              <div className="text-6xl mb-4">🎯</div>
-              <h3 className="text-lg font-semibold text-white">
-                Set Up 3D Motion Tracking
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Calibration helps the system understand your interaction space. 
-                You'll be guided through {calibrationSteps.length} simple steps to define 
-                your comfortable movement boundaries.
-              </p>
-              
-              <div className="bg-dark-700 rounded-lg p-4 text-left">
-                <h4 className="text-sm font-medium text-blue-400 mb-2">What you'll do:</h4>
-                <ul className="text-xs text-gray-300 space-y-1">
-                  <li>• Move your hand to different positions when prompted</li>
-                  <li>• Hold steady for 3 seconds at each position</li>
-                  <li>• Keep your hand visible to the camera</li>
-                  <li>• Take your time - accuracy is important</li>
+        {!isCalibrating ? (
+          /* Welcome Screen */
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <div style={{ fontSize: '48px', marginBottom: 16 }}>🎯</div>
+            <Typography.Title level={4} style={{ color: '#ffffff', marginBottom: 16 }}>
+              Set Up 3D Motion Tracking
+            </Typography.Title>
+            <Typography.Paragraph style={{ color: '#d1d5db', fontSize: '14px', marginBottom: 24 }}>
+              Calibration helps the system understand your interaction space.
+              You'll be guided through {calibrationSteps.length} simple steps to define
+              your comfortable movement boundaries.
+            </Typography.Paragraph>
+
+            <Alert
+              message="What you'll do:"
+              description={
+                <ul style={{ margin: 0, paddingLeft: 16, color: '#d1d5db', textAlign: 'left' }}>
+                  <li>Move your hand to different positions when prompted</li>
+                  <li>Hold steady for 3 seconds at each position</li>
+                  <li>Keep your hand visible to the camera</li>
+                  <li>Take your time - accuracy is important</li>
                 </ul>
-              </div>
+              }
+              type="info"
+              showIcon
+              style={{
+                marginBottom: 24,
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                textAlign: 'left',
+              }}
+            />
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  onClick={handleStartCalibration}
-                  disabled={!handState?.isTracking}
-                >
-                  {handState?.isTracking ? '🚀 Start Calibration' : '⚠️ Hand Not Detected'}
-                </button>
-                <button
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Button
+                type="primary"
+                size="large"
+                icon={handState?.isTracking ? <RocketOutlined /> : <WarningOutlined />}
+                onClick={handleStartCalibration}
+                disabled={!handState?.isTracking}
+                style={{ flex: 1 }}
+              >
+                {handState?.isTracking ? 'Start Calibration' : 'Hand Not Detected'}
+              </Button>
+              <Button
+                size="large"
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : calibrationStep < calibrationSteps.length ? (
+          /* Calibration Steps */
+          <div style={{ padding: '24px 0' }}>
+            {/* Progress */}
+            <div style={{ marginBottom: 24 }}>
+              <Progress
+                percent={progress}
+                strokeColor="#22c55e"
+                trailColor="rgba(255, 255, 255, 0.1)"
+                showInfo={false}
+                style={{ marginBottom: 8 }}
+              />
+              <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                Step {calibrationStep + 1} of {calibrationSteps.length}
               </div>
             </div>
-          ) : calibrationStep < calibrationSteps.length ? (
-            /* Calibration Steps */
-            <div className="space-y-4">
-              {/* Progress Bar */}
-              <div className="w-full bg-dark-700 rounded-full h-2">
-                <motion.div
-                  className="bg-blue-500 h-2 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
 
-              {/* Step Info */}
-              <div className="text-center">
-                <div className="text-4xl mb-2">{currentStep.icon}</div>
-                <h3 className="text-lg font-semibold text-white mb-1">
-                  Step {calibrationStep + 1} of {calibrationSteps.length}
-                </h3>
-                <h4 className="text-blue-400 font-medium mb-2">
-                  {currentStep.title}
-                </h4>
-                <p className="text-gray-300 text-sm mb-4">
-                  {currentStep.instruction}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {currentStep.description}
-                </p>
-              </div>
+            {/* Step Info */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: '32px', marginBottom: 12 }}>{currentStep.icon}</div>
+              <Typography.Title level={4} style={{ color: '#22c55e', marginBottom: 8 }}>
+                {currentStep.title}
+              </Typography.Title>
+              <Typography.Paragraph style={{ color: '#d1d5db', fontSize: '14px', marginBottom: 8 }}>
+                {currentStep.instruction}
+              </Typography.Paragraph>
+              <Typography.Text style={{ color: '#9ca3af', fontSize: '12px' }}>
+                {currentStep.description}
+              </Typography.Text>
+            </div>
 
               {/* Hand Detection Status */}
               <div className={`
@@ -298,34 +318,37 @@ const CalibrationModal = ({
                 🔄 Restart Calibration
               </button>
             </div>
-          ) : (
-            /* Completion Screen */
-            <div className="text-center space-y-4">
-              <motion.div
-                className="text-6xl"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", duration: 0.6 }}
-              >
-                🎉
-              </motion.div>
-              <h3 className="text-lg font-semibold text-white">
-                Calibration Complete!
-              </h3>
-              <p className="text-gray-300 text-sm">
-                Your 3D motion tracking is now set up and ready to use.
-                You can now control objects with full spatial movement.
-              </p>
-              <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3">
-                <p className="text-green-400 text-sm">
-                  ✅ 3D Motion Mode is now active
-                </p>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        ) : (
+          /* Completion Screen */
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <motion.div
+              style={{ fontSize: '48px', marginBottom: 16 }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", duration: 0.6 }}
+            >
+              🎉
+            </motion.div>
+            <Typography.Title level={4} style={{ color: '#ffffff', marginBottom: 16 }}>
+              Calibration Complete!
+            </Typography.Title>
+            <Typography.Paragraph style={{ color: '#d1d5db', fontSize: '14px', marginBottom: 24 }}>
+              Your 3D motion tracking is now set up and ready to use.
+              You can now control objects with full spatial movement.
+            </Typography.Paragraph>
+            <Alert
+              message="3D Motion Mode is now active"
+              type="success"
+              showIcon
+              icon={<CheckCircleOutlined />}
+              style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+              }}
+            />
+          </div>
+        )}
+    </Modal>
   );
 };
 
