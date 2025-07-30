@@ -74,6 +74,9 @@ const localStorageMock = {
 };
 global.localStorage = localStorageMock;
 
+// Mock window.scrollTo for framer-motion
+global.scrollTo = jest.fn();
+
 // Suppress console warnings for tests
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -92,4 +95,75 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
+}));
+
+// Mock Lenis smooth scrolling library
+jest.mock('lenis', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    off: jest.fn(),
+    start: jest.fn(),
+    stop: jest.fn(),
+    destroy: jest.fn(),
+    scrollTo: jest.fn(),
+    raf: jest.fn(),
+    resize: jest.fn()
+  }));
+});
+
+// Mock Babylon.js modules
+jest.mock('@babylonjs/core', () => ({
+  Engine: jest.fn().mockImplementation(() => ({
+    dispose: jest.fn(),
+    runRenderLoop: jest.fn(),
+    stopRenderLoop: jest.fn(),
+    resize: jest.fn()
+  })),
+  Scene: jest.fn().mockImplementation(() => ({
+    dispose: jest.fn(),
+    render: jest.fn(),
+    registerBeforeRender: jest.fn()
+  })),
+  Vector3: {
+    Zero: jest.fn(() => ({ x: 0, y: 0, z: 0 })),
+    One: jest.fn(() => ({ x: 1, y: 1, z: 1 }))
+  },
+  Color3: {
+    FromHexString: jest.fn(() => ({ r: 0, g: 0, b: 0 }))
+  },
+  UniversalCamera: jest.fn(),
+  HemisphericLight: jest.fn(),
+  DirectionalLight: jest.fn(),
+  SpotLight: jest.fn(),
+  MeshBuilder: {
+    CreateBox: jest.fn(() => ({
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scaling: { x: 1, y: 1, z: 1 },
+      dispose: jest.fn()
+    })),
+    CreateGround: jest.fn(),
+    CreateSphere: jest.fn()
+  },
+  StandardMaterial: jest.fn(),
+  PBRMaterial: jest.fn(),
+  ActionManager: jest.fn()
+}));
+
+// Mock TensorFlow.js
+jest.mock('@tensorflow/tfjs', () => ({
+  setBackend: jest.fn(() => Promise.resolve()),
+  ready: jest.fn(() => Promise.resolve()),
+  browser: {
+    fromPixels: jest.fn(() => ({
+      dispose: jest.fn()
+    }))
+  }
+}));
+
+// Mock HandPose model
+jest.mock('@tensorflow-models/handpose', () => ({
+  load: jest.fn(() => Promise.resolve({
+    estimateHands: jest.fn(() => Promise.resolve([]))
+  }))
 }));

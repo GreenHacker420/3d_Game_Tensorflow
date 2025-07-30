@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal, Card, Button, Row, Col, Typography, Badge, Space, Tag, Divider } from 'antd';
+import { PlayCircleOutlined, TrophyOutlined, ArrowLeftOutlined, CloseOutlined } from '@ant-design/icons';
 import { getAllModes } from '../utils/GameModes';
-import './GameModeSelector.css';
+
+const { Title, Text, Paragraph } = Typography;
 
 const GameModeSelector = ({ 
   onModeSelect = () => {},
@@ -48,133 +51,250 @@ const GameModeSelector = ({
   if (!isVisible) return null;
 
   return (
-    <motion.div
-      className="game-mode-selector-overlay"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="game-mode-selector"
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="selector-header">
-          <h2>🎮 Select Game Mode</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
-        </div>
+    <AnimatePresence>
+      {isVisible && (
+        <Modal
+          title={
+            <Space>
+              <TrophyOutlined style={{ color: '#22c55e', fontSize: '20px' }} />
+              <Title level={3} style={{ margin: 0, color: '#ffffff' }}>
+                Select Game Mode
+              </Title>
+            </Space>
+          }
+          open={isVisible}
+          onCancel={onClose}
+          footer={null}
+          width={900}
+          centered
+          closeIcon={<CloseOutlined style={{ color: '#ffffff' }} />}
+          styles={{
+            mask: {
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)'
+            },
+            content: {
+              backgroundColor: 'rgba(20, 20, 30, 0.95)',
+              border: '2px solid #22c55e',
+              borderRadius: '20px',
+            },
+            header: {
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              borderBottom: '1px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: '20px 20px 0 0',
+            }
+          }}
+        >
 
-        <div className="modes-container">
           {!showDetails ? (
-            <motion.div 
-              className="modes-grid"
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              style={{ padding: '20px' }}
             >
-              {modes.map((mode) => (
-                <motion.div
-                  key={mode.id}
-                  className={`mode-card ${currentMode === mode.id ? 'current' : ''}`}
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleModeClick(mode)}
-                >
-                  <div className="mode-icon">{mode.icon}</div>
-                  <h3 className="mode-name">{mode.name}</h3>
-                  <p className="mode-description">{mode.description}</p>
-                  
-                  <div className="mode-features">
-                    {getModeFeaturesList(mode).slice(0, 3).map((feature, index) => (
-                      <span key={index} className="feature-tag">{feature}</span>
-                    ))}
-                  </div>
-
-                  {currentMode === mode.id && (
-                    <div className="current-mode-badge">Currently Playing</div>
-                  )}
-                </motion.div>
-              ))}
+              <Row gutter={[16, 16]}>
+                {modes.map((mode) => (
+                  <Col span={12} key={mode.id}>
+                    <motion.div
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Card
+                        hoverable
+                        cover={
+                          <div style={{
+                            fontSize: '48px',
+                            textAlign: 'center',
+                            padding: '20px',
+                            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05))'
+                          }}>
+                            {mode.icon}
+                          </div>
+                        }
+                        actions={[
+                          <Button
+                            key="select"
+                            type="primary"
+                            icon={<PlayCircleOutlined />}
+                            onClick={() => handleModeClick(mode)}
+                            disabled={currentMode === mode.id}
+                            style={{
+                              backgroundColor: currentMode === mode.id ? '#6b7280' : '#22c55e',
+                              borderColor: currentMode === mode.id ? '#6b7280' : '#22c55e'
+                            }}
+                          >
+                            {currentMode === mode.id ? 'Currently Playing' : 'Select Mode'}
+                          </Button>
+                        ]}
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          border: currentMode === mode.id ? '2px solid #22c55e' : '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '12px'
+                        }}
+                      >
+                        <Card.Meta
+                          title={
+                            <Space>
+                              <Title level={4} style={{ margin: 0, color: '#ffffff' }}>
+                                {mode.name}
+                              </Title>
+                              {currentMode === mode.id && (
+                                <Badge status="processing" text="Active" />
+                              )}
+                            </Space>
+                          }
+                          description={
+                            <Text style={{ color: '#9ca3af' }}>
+                              {mode.description}
+                            </Text>
+                          }
+                        />
+                        <div style={{ marginTop: 12 }}>
+                          <Space wrap>
+                            {getModeFeaturesList(mode).slice(0, 3).map((feature, index) => (
+                              <Tag key={index} color="green" style={{
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                borderColor: 'rgba(34, 197, 94, 0.3)',
+                                color: '#22c55e'
+                              }}>
+                                {feature}
+                              </Tag>
+                            ))}
+                          </Space>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  </Col>
+                ))}
+              </Row>
             </motion.div>
           ) : (
-            <motion.div 
-              className="mode-details"
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
+              style={{ padding: '20px' }}
             >
-              <button 
-                className="back-btn"
+              <Button
+                icon={<ArrowLeftOutlined />}
                 onClick={() => setShowDetails(false)}
+                style={{
+                  marginBottom: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff'
+                }}
               >
-                ← Back to Modes
-              </button>
+                Back to Modes
+              </Button>
 
-              <div className="details-content">
-                <div className="details-header">
-                  <div className="details-icon">{selectedMode.icon}</div>
+              <Card
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '64px' }}>{selectedMode.icon}</div>
                   <div>
-                    <h2>{selectedMode.name}</h2>
-                    <p className="details-description">{selectedMode.description}</p>
+                    <Title level={2} style={{ margin: 0, color: '#ffffff' }}>
+                      {selectedMode.name}
+                    </Title>
+                    <Paragraph style={{ color: '#9ca3af', fontSize: '16px', margin: '8px 0 0 0' }}>
+                      {selectedMode.description}
+                    </Paragraph>
                   </div>
                 </div>
 
-                <div className="details-sections">
-                  <div className="details-section">
-                    <h4>🎯 Features</h4>
-                    <div className="features-list">
-                      {getModeFeaturesList(selectedMode).map((feature, index) => (
-                        <div key={index} className="feature-item">{feature}</div>
-                      ))}
-                    </div>
-                  </div>
+                <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
 
-                  <div className="details-section">
-                    <h4>⚙️ Settings</h4>
-                    <div className="settings-list">
-                      {getModeSettings(selectedMode).map((setting, index) => (
-                        <div key={index} className="setting-item">{setting}</div>
+                <Row gutter={[16, 16]}>
+                  <Col span={8}>
+                    <Title level={4} style={{ color: '#22c55e', margin: '0 0 12px 0' }}>
+                      🎯 Features
+                    </Title>
+                    <Space direction="vertical" size={8}>
+                      {getModeFeaturesList(selectedMode).map((feature, index) => (
+                        <Tag key={index} color="green" style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          borderColor: 'rgba(34, 197, 94, 0.3)',
+                          color: '#22c55e',
+                          padding: '4px 8px'
+                        }}>
+                          {feature}
+                        </Tag>
                       ))}
-                    </div>
-                  </div>
+                    </Space>
+                  </Col>
+
+                  <Col span={8}>
+                    <Title level={4} style={{ color: '#22c55e', margin: '0 0 12px 0' }}>
+                      ⚙️ Settings
+                    </Title>
+                    <Space direction="vertical" size={8}>
+                      {getModeSettings(selectedMode).map((setting, index) => (
+                        <Text key={index} style={{ color: '#d1d5db', display: 'block' }}>
+                          {setting}
+                        </Text>
+                      ))}
+                    </Space>
+                  </Col>
 
                   {selectedMode.settings.gestureRequirements && selectedMode.settings.gestureRequirements.length > 0 && (
-                    <div className="details-section">
-                      <h4>✋ Required Gestures</h4>
-                      <div className="gestures-list">
+                    <Col span={8}>
+                      <Title level={4} style={{ color: '#22c55e', margin: '0 0 12px 0' }}>
+                        ✋ Required Gestures
+                      </Title>
+                      <Space direction="vertical" size={8}>
                         {selectedMode.settings.gestureRequirements.map((gesture, index) => (
-                          <div key={index} className="gesture-item">
+                          <Text key={index} style={{ color: '#ffffff', display: 'block' }}>
                             {getGestureEmoji(gesture)} {gesture.replace('_', ' ')}
-                          </div>
+                          </Text>
                         ))}
-                      </div>
-                    </div>
+                      </Space>
+                    </Col>
                   )}
+                </Row>
 
-                  <div className="details-section">
-                    <h4>📋 How to Play</h4>
-                    <div className="instructions">
-                      {getInstructions(selectedMode)}
-                    </div>
+                <Divider style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+                <div>
+                  <Title level={4} style={{ color: '#22c55e', margin: '0 0 12px 0' }}>
+                    📋 How to Play
+                  </Title>
+                  <div style={{ color: '#d1d5db' }}>
+                    {getInstructions(selectedMode).map((instruction, index) => (
+                      <Paragraph key={index} style={{ color: '#d1d5db', margin: '4px 0' }}>
+                        {instruction}
+                      </Paragraph>
+                    ))}
                   </div>
                 </div>
 
-                <div className="details-actions">
-                  <button 
-                    className="start-mode-btn"
+                <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<PlayCircleOutlined />}
                     onClick={handleStartMode}
                     disabled={currentMode === selectedMode.id}
+                    style={{
+                      backgroundColor: currentMode === selectedMode.id ? '#6b7280' : '#22c55e',
+                      borderColor: currentMode === selectedMode.id ? '#6b7280' : '#22c55e',
+                      height: '48px',
+                      fontSize: '16px',
+                      fontWeight: 'bold'
+                    }}
                   >
                     {currentMode === selectedMode.id ? 'Currently Playing' : `Start ${selectedMode.name}`}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             </motion.div>
           )}
-        </div>
-      </motion.div>
-    </motion.div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 };
 

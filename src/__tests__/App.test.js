@@ -49,6 +49,16 @@ jest.mock('../hooks/use3DScene.js', () => ({
   })
 }));
 
+// Mock useLenis hook
+jest.mock('../hooks/useLenis.js', () => ({
+  __esModule: true,
+  default: () => ({
+    scrollTo: jest.fn(),
+    start: jest.fn(),
+    stop: jest.fn()
+  })
+}));
+
 // Mock react-webcam
 jest.mock('react-webcam', () => {
   const mockReact = require('react');

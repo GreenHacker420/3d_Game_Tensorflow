@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import ObjectivesManager from '../utils/ObjectivesManager.js';
+import RewardsManager from '../utils/RewardsManager.js';
 import { GESTURE_TYPES } from '../core/GestureClassifier.js';
+
+// Create manager instances
+const objectivesManager = new ObjectivesManager();
+const rewardsManager = new RewardsManager();
 
 // Game State Management using Zustand with enhanced features
 const useGameStore = create(
@@ -34,6 +40,21 @@ const useGameStore = create(
   objects: [],
   selectedObject: null,
   gestureCompatibility: [],
+
+  // Objectives State
+  objectives: [],
+  objectivesProgress: {},
+  completedObjectives: [],
+  objectivesActive: false,
+
+  // Rewards State
+  activeRewards: [],
+  recentRewards: [],
+  totalRewardPoints: 0,
+  comboStreak: 0,
+  maxComboStreak: 0,
+  streakMultiplier: 1.0,
+  currentRewardNotification: null,
   
   // UI State
   showHUD: true,
@@ -166,13 +187,66 @@ const useGameStore = create(
   })),
   
   // Game Actions
-  startGame: () => set({
-    gameState: 'playing',
-    score: 0,
-    level: 1,
-    lives: 3,
-    showPauseMenu: false
-  }),
+  startGame: () => {
+    const { gameMode } = get();
+
+    // Initialize objectives manager
+    objectivesManager.setEventHandlers({
+      onObjectiveComplete: (objective) => {
+        set(state => ({
+          completedObjectives: [...state.completedObjectives, objective]
+        }));
+      },
+      onProgressUpdate: (progress, objectives) => {
+        set({
+          objectivesProgress: progress,
+          objectives: objectives
+        });
+      }
+    });
+
+    // Initialize rewards manager
+    rewardsManager.setEventHandlers({
+      onRewardEarned: (reward) => {
+        set(state => ({
+          activeRewards: [...state.activeRewards, reward],
+          recentRewards: [...state.recentRewards, reward].slice(-10), // Keep last 10
+          totalRewardPoints: state.totalRewardPoints + reward.points,
+          comboStreak: reward.streakCount,
+          currentRewardNotification: reward
+        }));
+
+        // Clear notification after delay
+        setTimeout(() => {
+          set({ currentRewardNotification: null });
+        }, 3000);
+      },
+      onSpecialEffect: (effect) => {
+        console.log('🎆 Special effect triggered:', effect.name);
+        // Handle special effects (lighting, particles, etc.)
+      },
+      onScoreUpdate: (points, total) => {
+        set(state => ({
+          score: state.score + points
+        }));
+      }
+    });
+
+    objectivesManager.startGameMode(gameMode);
+    rewardsManager.reset();
+
+    set({
+      gameState: 'playing',
+      score: 0,
+      level: 1,
+      lives: 3,
+      showPauseMenu: false,
+      objectivesActive: true,
+      objectives: objectivesManager.currentObjectives,
+      objectivesProgress: objectivesManager.progress,
+      completedObjectives: []
+    });
+  },
   
   pauseGame: () => set({
     gameState: 'paused',
@@ -189,17 +263,32 @@ const useGameStore = create(
     showPauseMenu: false
   }),
   
-  resetGame: () => set({
-    gameState: 'menu',
-    score: 0,
-    level: 1,
-    lives: 3,
-    showPauseMenu: false,
-    showSettings: false,
-    gestureSequences: [],
-    activeCombo: null,
-    comboMultiplier: 1
-  }),
+  resetGame: () => {
+    objectivesManager.reset();
+    rewardsManager.reset();
+    set({
+      gameState: 'menu',
+      score: 0,
+      level: 1,
+      lives: 3,
+      showPauseMenu: false,
+      showSettings: false,
+      gestureSequences: [],
+      activeCombo: null,
+      comboMultiplier: 1,
+      objectivesActive: false,
+      objectives: [],
+      objectivesProgress: {},
+      completedObjectives: [],
+      activeRewards: [],
+      recentRewards: [],
+      totalRewardPoints: 0,
+      comboStreak: 0,
+      maxComboStreak: 0,
+      streakMultiplier: 1.0,
+      currentRewardNotification: null
+    });
+  },
 
   // Gesture sequence actions
   addGestureToSequence: (gesture) => set((state) => {
@@ -228,7 +317,57 @@ const useGameStore = create(
     const newSoundEffects = new Map(state.soundEffects);
     newSoundEffects.set(name, audio);
     return { soundEffects: newSoundEffects };
-  })
+  }),
+
+  // Objectives Management
+  updateObjectivesProgress: (event, data) => {
+    if (objectivesManager.isActive) {
+      objectivesManager.updateProgress(event, data);
+    }
+  },
+
+  getObjectivesStatus: () => {
+    return objectivesManager.getObjectivesStatus();
+  },
+
+  // Combo and Rewards Management
+  processComboReward: (comboId, gestureSequence, confidence = 1.0) => {
+    const reward = rewardsManager.processComboReward(comboId, gestureSequence, confidence);
+    if (reward) {
+      // Update objectives progress for combo completion
+      if (objectivesManager.isActive) {
+        objectivesManager.updateProgress('combo_completed', { comboId, reward });
+      }
+    }
+    return reward;
+  },
+
+  resetComboStreak: () => {
+    rewardsManager.resetStreak();
+    set({
+      comboStreak: 0,
+      streakMultiplier: 1.0
+    });
+  },
+
+  removeActiveReward: (rewardId) => {
+    rewardsManager.removeActiveReward(rewardId);
+    set(state => ({
+      activeRewards: state.activeRewards.filter(r => r.id !== rewardId)
+    }));
+  },
+
+  getRewardsStatus: () => {
+    return rewardsManager.getRewardsStatus();
+  },
+
+  getAvailableCombos: () => {
+    return rewardsManager.getAvailableCombos();
+  },
+
+  // Expose managers for direct access
+  objectivesManager,
+  rewardsManager
   }))
 );
 

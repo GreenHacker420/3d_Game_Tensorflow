@@ -1,6 +1,8 @@
+import { theme } from 'antd';
+
 /**
- * Ant Design Theme Configuration
- * Matches the existing dark theme with green accent colors
+ * Enhanced Ant Design Theme Configuration for 3D Hand Pose Game
+ * Dark gaming theme with green accents, glass morphism effects, and gaming-specific components
  */
 
 export const antdTheme = {
@@ -231,10 +233,181 @@ export const antdTheme = {
       colorBgElevated: 'rgba(0, 0, 0, 0.9)',
       borderRadius: 8,
     },
+
+    // Gaming-specific components
+
+    // Badge component for gaming indicators
+    Badge: {
+      colorBgContainer: 'rgba(34, 197, 94, 0.9)',
+      colorText: '#ffffff',
+      borderRadiusSM: 4,
+    },
+
+    // Timeline component for objectives
+    Timeline: {
+      colorPrimary: '#22c55e',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+    },
+
+    // Steps component for calibration
+    Steps: {
+      colorPrimary: '#22c55e',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+      colorFillContent: 'rgba(255, 255, 255, 0.05)',
+    },
+
+    // Slider component for audio controls
+    Slider: {
+      colorPrimary: '#22c55e',
+      colorPrimaryBorder: '#22c55e',
+      colorPrimaryBorderHover: '#16a34a',
+      handleColor: '#22c55e',
+      handleColorHover: '#16a34a',
+      trackBg: 'rgba(255, 255, 255, 0.1)',
+      trackHoverBg: 'rgba(255, 255, 255, 0.15)',
+      railBg: 'rgba(255, 255, 255, 0.05)',
+      railHoverBg: 'rgba(255, 255, 255, 0.08)',
+    },
+
+    // List component for objects/objectives
+    List: {
+      colorBgContainer: 'rgba(255, 255, 255, 0.02)',
+      colorBorder: 'rgba(255, 255, 255, 0.05)',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+    },
+
+    // Divider component
+    Divider: {
+      colorSplit: 'rgba(255, 255, 255, 0.1)',
+      colorText: '#9ca3af',
+    },
+
+    // Tag component for features/gestures
+    Tag: {
+      colorBgContainer: 'rgba(255, 255, 255, 0.08)',
+      colorBorder: 'rgba(255, 255, 255, 0.1)',
+      colorText: '#ffffff',
+      borderRadiusSM: 4,
+    },
+
+    // Alert component for error boundaries
+    Alert: {
+      colorErrorBg: 'rgba(239, 68, 68, 0.1)',
+      colorWarningBg: 'rgba(234, 179, 8, 0.1)',
+      colorInfoBg: 'rgba(59, 130, 246, 0.1)',
+      colorSuccessBg: 'rgba(34, 197, 94, 0.1)',
+      borderRadiusLG: 8,
+    },
+
+    // Spin component for loading states
+    Spin: {
+      colorPrimary: '#22c55e',
+      colorWhite: '#ffffff',
+    },
+
+    // Skeleton component for loading placeholders
+    Skeleton: {
+      colorFill: 'rgba(255, 255, 255, 0.05)',
+      colorFillContent: 'rgba(255, 255, 255, 0.08)',
+      borderRadius: 6,
+    },
+
+    // Gaming-specific components
+
+    // Badge component for gaming indicators
+    Badge: {
+      colorBgContainer: 'rgba(34, 197, 94, 0.9)',
+      colorText: '#ffffff',
+      borderRadiusSM: 4,
+    },
+
+    // Timeline component for objectives
+    Timeline: {
+      colorPrimary: '#22c55e',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+    },
+
+    // Steps component for calibration
+    Steps: {
+      colorPrimary: '#22c55e',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+      colorFillContent: 'rgba(255, 255, 255, 0.05)',
+    },
+
+    // Slider component for audio controls
+    Slider: {
+      colorPrimary: '#22c55e',
+      colorPrimaryBorder: '#22c55e',
+      colorPrimaryBorderHover: '#16a34a',
+      handleColor: '#22c55e',
+      handleColorHover: '#16a34a',
+      trackBg: 'rgba(255, 255, 255, 0.1)',
+      trackHoverBg: 'rgba(255, 255, 255, 0.15)',
+      railBg: 'rgba(255, 255, 255, 0.05)',
+      railHoverBg: 'rgba(255, 255, 255, 0.08)',
+    },
+
+    // List component for objects/objectives
+    List: {
+      colorBgContainer: 'rgba(255, 255, 255, 0.02)',
+      colorBorder: 'rgba(255, 255, 255, 0.05)',
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+    },
+
+    // Divider component
+    Divider: {
+      colorSplit: 'rgba(255, 255, 255, 0.1)',
+      colorText: '#9ca3af',
+    },
+
+    // Tag component for features/gestures
+    Tag: {
+      colorBgContainer: 'rgba(255, 255, 255, 0.08)',
+      colorBorder: 'rgba(255, 255, 255, 0.1)',
+      colorText: '#ffffff',
+      borderRadiusSM: 4,
+    },
+
+    // Alert component for error boundaries
+    Alert: {
+      colorErrorBg: 'rgba(239, 68, 68, 0.1)',
+      colorWarningBg: 'rgba(234, 179, 8, 0.1)',
+      colorInfoBg: 'rgba(59, 130, 246, 0.1)',
+      colorSuccessBg: 'rgba(34, 197, 94, 0.1)',
+      borderRadiusLG: 8,
+    },
+
+    // Spin component for loading states
+    Spin: {
+      colorPrimary: '#22c55e',
+      colorWhite: '#ffffff',
+    },
+
+    // Drawer component for mobile UI
+    Drawer: {
+      colorBgElevated: 'rgba(0, 0, 0, 0.95)',
+      colorBgMask: 'rgba(0, 0, 0, 0.6)',
+      borderRadiusLG: 12,
+    },
+
+    // Statistic component for performance metrics
+    Statistic: {
+      colorText: '#ffffff',
+      colorTextDescription: '#9ca3af',
+      fontSizeHeading1: 24,
+      fontSizeHeading2: 20,
+      fontSizeHeading3: 16,
+    },
   },
-  
+
   // Algorithm for generating theme
-  algorithm: 'dark', // This will be handled by Ant Design's built-in dark algorithm
+  algorithm: theme.darkAlgorithm, // Use Ant Design's built-in dark algorithm
 };
 
 export default antdTheme;

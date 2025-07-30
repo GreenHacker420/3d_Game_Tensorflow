@@ -3,6 +3,7 @@ import HandDetectionEngine from '../core/HandDetectionEngine.js';
 import GestureClassifier from '../core/GestureClassifier.js';
 import HandStateManager from '../core/HandStateManager.js';
 import PerformanceMonitor from '../utils/PerformanceMonitor.js';
+import { GestureSequenceDetector } from '../utils/GestureSequence.js';
 import { ThreeDMotionModeManager } from '../core/3DMotionModeManager.js';
 
 /**
@@ -25,6 +26,8 @@ export const useHandDetection = () => {
     latency: 0,
     frameCount: 0
   });
+  const [activeCombo, setActiveCombo] = useState(null);
+  const [comboProgress, setComboProgress] = useState([]);
 
   // Refs for detection components
   const detectionEngineRef = useRef(null);
@@ -32,6 +35,7 @@ export const useHandDetection = () => {
   const handStateManagerRef = useRef(null);
   const performanceMonitorRef = useRef(null);
   const motionModeManagerRef = useRef(null);
+  const gestureSequenceDetectorRef = useRef(null);
   const detectionLoopRef = useRef(null);
   const isDetectingRef = useRef(false);
 
@@ -59,7 +63,19 @@ export const useHandDetection = () => {
 
       // Initialize hand state manager
       handStateManagerRef.current = new HandStateManager();
-      handStateManagerRef.current.setStateChangeCallback(setHandState);
+      handStateManagerRef.current.setStateChangeCallback((newState) => {
+        setHandState(newState);
+
+        // Add gesture to sequence detector if gesture changed and is valid
+        if (gestureSequenceDetectorRef.current &&
+            newState.gesture !== 'no_hand' &&
+            newState.confidence > 0.7) {
+          const combo = gestureSequenceDetectorRef.current.addGesture(newState.gesture, newState.confidence);
+          if (combo) {
+            setComboProgress(gestureSequenceDetectorRef.current.gestureHistory);
+          }
+        }
+      });
 
       // Initialize performance monitor
       performanceMonitorRef.current = new PerformanceMonitor();
@@ -74,6 +90,23 @@ export const useHandDetection = () => {
 
       // Start performance monitoring
       performanceMonitorRef.current.start();
+
+      // Initialize gesture sequence detector
+      gestureSequenceDetectorRef.current = new GestureSequenceDetector(3000);
+      gestureSequenceDetectorRef.current.onComboDetected = (combo) => {
+        setActiveCombo(combo);
+        console.log('🎯 Combo detected:', combo.name);
+      };
+      gestureSequenceDetectorRef.current.onComboCompleted = (combo, sequence) => {
+        console.log('🎉 Combo completed:', combo.name);
+        setActiveCombo(null);
+        setComboProgress([]);
+      };
+      gestureSequenceDetectorRef.current.onComboFailed = () => {
+        setActiveCombo(null);
+        setComboProgress([]);
+      };
+      console.log('✅ Gesture Sequence Detector initialized');
 
       setIsInitialized(true);
       console.log('✅ Hand detection system initialized');
@@ -302,6 +335,8 @@ export const useHandDetection = () => {
     error,
     handState,
     performance,
+    activeCombo,
+    comboProgress,
 
     // Methods
     initialize,
@@ -321,7 +356,10 @@ export const useHandDetection = () => {
     resetCalibration,
 
     // Status
-    isDetecting: isDetectingRef.current
+    isDetecting: isDetectingRef.current,
+
+    // Components (for advanced usage)
+    gestureSequenceDetector: gestureSequenceDetectorRef.current
   };
 };
 

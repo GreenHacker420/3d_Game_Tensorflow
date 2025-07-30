@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import HandTracker from './components/HandTracker.jsx';
 import Scene3D from './components/Scene3D.jsx';
@@ -12,10 +12,17 @@ import EnhancedHandVisualization from './components/EnhancedHandVisualization.js
 import ConfidenceIndicator from './components/ConfidenceIndicator.jsx';
 import InteractiveCalibrationGuide from './components/InteractiveCalibrationGuide.jsx';
 import MobileUI from './components/MobileUI.jsx';
+import ObjectsHUD from './components/ObjectsHUD.jsx';
+import ObjectivesHUD from './components/ObjectivesHUD.jsx';
+import RewardsHUD, { RewardNotification } from './components/RewardsHUD.jsx';
+import GameController from './components/GameController.jsx';
 import useHandDetection from './hooks/useHandDetection.js';
 import use3DScene from './hooks/use3DScene.js';
 import useLenis from './hooks/useLenis.js';
+import useGameStore from './store/gameStore.js';
 import { TRACKING_MODES } from './core/3DMotionModeManager.js';
+import { ConfigProvider } from 'antd';
+import antdTheme from './config/antdTheme.js';
 import './App.css';
 
 /**
@@ -42,12 +49,39 @@ function App() {
   const [deviceOrientation, setDeviceOrientation] = useState('portrait');
   const [showMobileSettings, setShowMobileSettings] = useState(false);
 
+  // Multi-object system state
+  const [showObjectsHUD, setShowObjectsHUD] = useState(true);
+  const [objectsHUDMinimized, setObjectsHUDMinimized] = useState(false);
+
+  // Objectives system state
+  const [showObjectivesHUD, setShowObjectivesHUD] = useState(true);
+  const [objectivesHUDMinimized, setObjectivesHUDMinimized] = useState(false);
+
+  // Game store
+  const {
+    objectives,
+    objectivesProgress,
+    objectivesActive,
+    updateObjectivesProgress,
+    activeRewards,
+    recentRewards,
+    totalRewardPoints,
+    comboStreak,
+    maxComboStreak,
+    streakMultiplier,
+    currentRewardNotification,
+    processComboReward,
+    removeActiveReward
+  } = useGameStore();
+
   // Custom hooks for hand detection and 3D scene
   const {
     isLoading: handLoading,
     error: handError,
     handState,
     performance,
+    activeCombo,
+    comboProgress,
     initialize: initializeHand,
     startDetection,
     switchTrackingMode,
@@ -60,8 +94,14 @@ function App() {
     isLoading: sceneLoading,
     error: sceneError,
     cubeInfo,
+    objectsInfo,
+    selectedObject,
     initialize: initializeScene,
-    updateCubeWithHand
+    updateCubeWithHand,
+    getAllObjects,
+    getSelectedObject,
+    selectObject,
+    getGestureCompatibility
   } = use3DScene(sceneCanvasRef);
 
   // Initialize Lenis smooth scrolling
@@ -233,6 +273,71 @@ function App() {
   };
 
   /**
+   * Handle object selection
+   */
+  const handleObjectSelection = (objectId) => {
+    if (selectObject) {
+      selectObject(objectId);
+    }
+  };
+
+  /**
+   * Get current gesture compatibility
+   */
+  const getCurrentGestureCompatibility = () => {
+    if (getGestureCompatibility && handState.gesture) {
+      return getGestureCompatibility(handState.gesture);
+    }
+    return [];
+  };
+
+  /**
+   * Handle game state changes
+   */
+  const handleGameStateChange = (event, data) => {
+    console.log('🎮 Game state change:', event, data);
+
+    switch (event) {
+      case 'gameStarted':
+        console.log('🚀 Game started in mode:', data);
+        break;
+      case 'gameReset':
+        console.log('🔄 Game reset');
+        break;
+      case 'modeSelected':
+        console.log('🎯 Game mode selected:', data);
+        break;
+      default:
+        console.log('🎮 Unknown game event:', event);
+    }
+  };
+
+  // Track objectives progress based on hand gestures
+  useEffect(() => {
+    if (handState.isTracking && handState.gesture !== 'no_hand' && objectivesActive) {
+      updateObjectivesProgress('gesture_performed', {
+        gesture: handState.gesture,
+        confidence: handState.confidence,
+        correct: true // Assume correct for now, can be enhanced with validation
+      });
+    }
+  }, [handState.gesture, handState.confidence, handState.isTracking, objectivesActive, updateObjectivesProgress]);
+
+  /**
+   * Handle combo completion from gesture sequence detector
+   */
+  const handleComboCompleted = useCallback((comboId, gestureSequence, averageConfidence) => {
+    console.log('🎉 Combo completed in App:', comboId, gestureSequence);
+
+    // Process the combo reward
+    const reward = processComboReward(comboId, gestureSequence, averageConfidence);
+
+    if (reward) {
+      console.log('💰 Reward processed:', reward);
+    }
+  }, [processComboReward]);
+
+  /**
    * Detect mobile device on component mount
    */
   useEffect(() => {
@@ -310,8 +415,9 @@ function App() {
   };
 
   return (
-    <ErrorBoundary>
-      <motion.div
+    <ConfigProvider theme={antdTheme}>
+      <ErrorBoundary>
+        <motion.div
         className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 text-white overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -414,6 +520,76 @@ function App() {
             position="top-right"
           />
         </motion.div>
+
+        {/* Objects HUD */}
+        {showObjectsHUD && objectsInfo && objectsInfo.length > 0 && (
+          <motion.div
+            className="absolute bottom-4 right-4 z-10"
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.0 }}
+          >
+            <ObjectsHUD
+              objectsInfo={objectsInfo}
+              selectedObject={selectedObject}
+              onSelectObject={handleObjectSelection}
+              gestureCompatibility={getCurrentGestureCompatibility()}
+              position="bottom-right"
+              minimized={objectsHUDMinimized}
+              onToggleMinimize={() => setObjectsHUDMinimized(!objectsHUDMinimized)}
+            />
+          </motion.div>
+        )}
+
+        {/* Objectives HUD */}
+        {showObjectivesHUD && objectivesActive && objectives && objectives.length > 0 && (
+          <motion.div
+            className="absolute bottom-4 left-4 z-10"
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+          >
+            <ObjectivesHUD
+              objectives={objectives}
+              progress={objectivesProgress}
+              completionRate={objectives.length > 0 ? (objectives.filter(obj => obj.completed).length / objectives.length) * 100 : 0}
+              isActive={objectivesActive}
+              position="bottom-left"
+              minimized={objectivesHUDMinimized}
+              onToggleMinimize={() => setObjectivesHUDMinimized(!objectivesHUDMinimized)}
+            />
+          </motion.div>
+        )}
+
+        {/* Rewards HUD */}
+        {(activeRewards.length > 0 || comboStreak > 0 || recentRewards.length > 0) && (
+          <motion.div
+            className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <RewardsHUD
+              activeRewards={activeRewards}
+              comboStreak={comboStreak}
+              maxComboStreak={maxComboStreak}
+              streakMultiplier={streakMultiplier}
+              totalPoints={totalRewardPoints}
+              recentRewards={recentRewards}
+              position="top-center"
+            />
+          </motion.div>
+        )}
+
+        {/* Reward Notification */}
+        {currentRewardNotification && (
+          <RewardNotification
+            reward={currentRewardNotification}
+            onComplete={() => {
+              // Notification will auto-clear from store
+            }}
+          />
+        )}
 
         {/* 3D Motion Toggle */}
         <motion.div
@@ -574,8 +750,17 @@ function App() {
           handState={handState}
           startCalibration={startCalibration}
         />
-      </motion.div>
-    </ErrorBoundary>
+
+        {/* Game Controller */}
+        <GameController
+          handState={handState}
+          objectsInfo={objectsInfo}
+          selectedObject={selectedObject}
+          onGameStateChange={handleGameStateChange}
+        />
+        </motion.div>
+      </ErrorBoundary>
+    </ConfigProvider>
   );
 }
 
