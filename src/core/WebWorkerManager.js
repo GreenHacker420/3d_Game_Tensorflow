@@ -224,11 +224,18 @@ export class WebWorkerManager {
    * @param {MessageEvent} event - Worker message event
    */
   handleWorkerMessage(event) {
-    const { type, predictions, frameId, processingTime, error, success } = event.data;
+    const { type, predictions, frameId, processingTime, error, success, fallbackRequired } = event.data;
 
     switch (type) {
       case 'initialized':
-        if (this.onInitialized) {
+        if (!success && fallbackRequired) {
+          console.log('🔄 Worker initialization failed, initializing fallback...');
+          this.initializeFallback().then((fallbackSuccess) => {
+            if (this.onInitialized) {
+              this.onInitialized(fallbackSuccess);
+            }
+          });
+        } else if (this.onInitialized) {
           this.onInitialized(success);
         }
         break;

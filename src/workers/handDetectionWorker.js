@@ -3,8 +3,19 @@
  * Processes hand detection in a separate thread for better performance
  */
 
-// Note: TensorFlow.js imports will be handled by the build system
-// For now, we'll disable the worker functionality and use fallback
+// Import TensorFlow.js and MediaPipe dependencies for worker context
+// Note: These imports need to be available in the worker context
+let tf, handPoseDetection;
+
+// Try to import dependencies, fallback if not available
+try {
+  // For development/testing, we'll disable worker functionality
+  // and use main thread processing due to import complexity
+  console.log('🔧 WebWorker: TensorFlow.js imports not available in worker context');
+  console.log('🔧 WebWorker: Using fallback to main thread processing');
+} catch (error) {
+  console.warn('⚠️ WebWorker: Failed to import dependencies:', error);
+}
 
 class HandDetectionWorker {
   constructor() {
@@ -38,7 +49,12 @@ class HandDetectionWorker {
    */
   async initialize() {
     try {
-      console.log('🚀 Initializing TensorFlow.js HandPose model in worker...');
+      console.log('🚀 Attempting to initialize TensorFlow.js HandPose model in worker...');
+
+      // Check if TensorFlow.js is available in worker context
+      if (typeof tf === 'undefined' || typeof handPoseDetection === 'undefined') {
+        throw new Error('TensorFlow.js or MediaPipe HandPose not available in worker context');
+      }
 
       // Set TensorFlow.js backend
       await tf.setBackend('webgl');
@@ -57,7 +73,7 @@ class HandDetectionWorker {
       this.isInitialized = true;
 
       console.log('✅ HandPose model initialized in worker');
-      
+
       // Notify main thread
       self.postMessage({
         type: 'initialized',
@@ -66,11 +82,13 @@ class HandDetectionWorker {
 
     } catch (error) {
       console.error('❌ Failed to initialize HandPose model in worker:', error);
-      
+      console.log('🔄 Worker will signal main thread to use fallback processing');
+
       self.postMessage({
         type: 'initialized',
         success: false,
-        error: error.message
+        error: error.message,
+        fallbackRequired: true
       });
     }
   }
@@ -91,9 +109,14 @@ class HandDetectionWorker {
     const startTime = performance.now();
 
     try {
+      // Check if TensorFlow.js is available
+      if (typeof tf === 'undefined') {
+        throw new Error('TensorFlow.js not available in worker context');
+      }
+
       // Create tensor from image data
       const tensor = tf.browser.fromPixels(imageData);
-      
+
       // Detect hands
       const predictions = await this.model.estimateHands(tensor, {
         flipHorizontal: this.adaptiveParams.flipHorizontal,
@@ -336,7 +359,7 @@ class HandDetectionWorker {
       ...this.performanceMetrics,
       isInitialized: this.isInitialized,
       isProcessing: this.isProcessing,
-      memoryUsage: tf.memory()
+      memoryUsage: typeof tf !== 'undefined' ? tf.memory() : { numTensors: 0, numDataBuffers: 0, numBytes: 0 }
     };
   }
 

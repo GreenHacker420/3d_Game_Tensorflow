@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { coordinateDebugger, debugHandAlignment } from '../utils/coordinateDebugger.js';
 
 /**
  * Webcam Hand Overlay Component
@@ -34,20 +35,37 @@ const WebcamHandOverlay = ({
   ];
 
   /**
-   * Transform normalized coordinates to canvas coordinates with proper mirroring
+   * Transform normalized coordinates to canvas coordinates
    * @param {number} x - Normalized x coordinate [0,1]
    * @param {number} y - Normalized y coordinate [0,1]
    * @param {number} canvasWidth - Canvas width in pixels
    * @param {number} canvasHeight - Canvas height in pixels
+   * @param {number} videoWidth - Video stream width (optional, for scaling)
+   * @param {number} videoHeight - Video stream height (optional, for scaling)
    * @returns {Object} Transformed coordinates {x, y}
    */
-  const transformCoordinates = (x, y, canvasWidth, canvasHeight) => {
+  const transformCoordinates = (x, y, canvasWidth, canvasHeight, videoWidth = canvasWidth, videoHeight = canvasHeight) => {
     // Convert normalized coordinates to pixel coordinates
+    // Scale based on canvas dimensions (no additional mirroring needed since webcam is already mirrored)
     let pixelX = x * canvasWidth;
     let pixelY = y * canvasHeight;
 
-    // Apply horizontal mirroring to match webcam's mirrored view
-    pixelX = canvasWidth - pixelX;
+    // No horizontal mirroring needed - the webcam component already handles mirroring
+    // The landmarks from MediaPipe are already in the correct coordinate space for the mirrored webcam
+
+    // Debug logging for coordinate transformation (only in development)
+    if (process.env.NODE_ENV === 'development' && coordinateDebugger.enabled && coordinateDebugger.logCount < 5) {
+      coordinateDebugger.logTransformation({
+        originalX: x,
+        originalY: y,
+        transformedX: pixelX,
+        transformedY: pixelY,
+        canvasWidth,
+        canvasHeight,
+        videoWidth,
+        videoHeight
+      });
+    }
 
     return { x: pixelX, y: pixelY };
   };
@@ -85,6 +103,28 @@ const WebcamHandOverlay = ({
       return;
     }
 
+    // Debug hand alignment (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      debugHandAlignment(handState, {
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        videoWidth,
+        videoHeight,
+        displayWidth,
+        displayHeight
+      });
+
+      // Test coordinate transformation with known values
+      if (coordinateDebugger.logCount === 0) {
+        coordinateDebugger.testTransformation(transformCoordinates, {
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+          videoWidth,
+          videoHeight
+        });
+      }
+    }
+
     // Set drawing styles
     ctx.strokeStyle = lineColor;
     ctx.fillStyle = pointColor;
@@ -98,9 +138,9 @@ const WebcamHandOverlay = ({
           const start = landmarks[startIdx];
           const end = landmarks[endIdx];
 
-          // Transform coordinates with proper mirroring
-          const startCoords = transformCoordinates(start[0], start[1], canvas.width, canvas.height);
-          const endCoords = transformCoordinates(end[0], end[1], canvas.width, canvas.height);
+          // Transform coordinates with proper scaling
+          const startCoords = transformCoordinates(start[0], start[1], canvas.width, canvas.height, videoWidth, videoHeight);
+          const endCoords = transformCoordinates(end[0], end[1], canvas.width, canvas.height, videoWidth, videoHeight);
 
           ctx.moveTo(startCoords.x, startCoords.y);
           ctx.lineTo(endCoords.x, endCoords.y);
@@ -113,8 +153,8 @@ const WebcamHandOverlay = ({
     if (showLandmarks) {
       landmarks.forEach((landmark, index) => {
         if (landmark) {
-          // Transform coordinates with proper mirroring
-          const coords = transformCoordinates(landmark[0], landmark[1], canvas.width, canvas.height);
+          // Transform coordinates with proper scaling
+          const coords = transformCoordinates(landmark[0], landmark[1], canvas.width, canvas.height, videoWidth, videoHeight);
 
           ctx.beginPath();
           ctx.arc(coords.x, coords.y, 4, 0, 2 * Math.PI);
@@ -135,9 +175,9 @@ const WebcamHandOverlay = ({
     if (showBoundingBox && handState.boundingBox) {
       const bbox = handState.boundingBox;
       if (bbox.topLeft && bbox.bottomRight) {
-        // Transform bounding box coordinates with proper mirroring
-        const topLeftCoords = transformCoordinates(bbox.topLeft[0], bbox.topLeft[1], canvas.width, canvas.height);
-        const bottomRightCoords = transformCoordinates(bbox.bottomRight[0], bbox.bottomRight[1], canvas.width, canvas.height);
+        // Transform bounding box coordinates with proper scaling
+        const topLeftCoords = transformCoordinates(bbox.topLeft[0], bbox.topLeft[1], canvas.width, canvas.height, videoWidth, videoHeight);
+        const bottomRightCoords = transformCoordinates(bbox.bottomRight[0], bbox.bottomRight[1], canvas.width, canvas.height, videoWidth, videoHeight);
 
         // Calculate width and height (accounting for mirroring)
         const x = Math.min(topLeftCoords.x, bottomRightCoords.x);
@@ -173,8 +213,8 @@ const WebcamHandOverlay = ({
 
     // Draw hand center point
     if (handState.position) {
-      // Transform hand center coordinates with proper mirroring
-      const centerCoords = transformCoordinates(handState.position.x, handState.position.y, canvas.width, canvas.height);
+      // Transform hand center coordinates with proper scaling
+      const centerCoords = transformCoordinates(handState.position.x, handState.position.y, canvas.width, canvas.height, videoWidth, videoHeight);
 
       ctx.strokeStyle = '#ff00ff';
       ctx.lineWidth = 3;

@@ -648,7 +648,20 @@ function App() {
           transition={{ duration: 0.5, delay: 1.0 }}
         >
           <div className="card-compact space-y-2">
-            <h3 className="text-sm font-semibold text-accent-400 mb-3">Gesture Controls</h3>
+            <h3 className="text-sm font-semibold text-accent-400 mb-3">Hand Tracking Guide</h3>
+
+            {/* Hand Positioning Instructions */}
+            <motion.div
+              className="gesture-item mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="text-xs text-blue-300 mb-1">📍 Hand Position</div>
+              <div className="text-xs text-gray-300">Keep hand centered in camera view for best tracking</div>
+            </motion.div>
+
+            <h4 className="text-xs font-medium text-gray-400 mb-2">Gesture Controls</h4>
             <motion.div
               className="gesture-item"
               whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}

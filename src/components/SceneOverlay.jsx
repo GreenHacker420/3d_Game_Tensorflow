@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { safeFormatCoordinate, safeFormatScaleValue } from '../utils/formatUtils.js';
 import './SceneOverlay.css';
 
 const SceneOverlay = ({
@@ -82,22 +83,22 @@ const SceneOverlay = ({
             <div className="info-item">
               <span className="info-label">Position</span>
               <div className="coordinate-display">
-                <span className="coord x">X: {selectedObject.position?.x?.toFixed(1) || '0.0'}</span>
-                <span className="coord y">Y: {selectedObject.position?.y?.toFixed(1) || '0.0'}</span>
-                <span className="coord z">Z: {selectedObject.position?.z?.toFixed(1) || '0.0'}</span>
+                <span className="coord x">X: {safeFormatCoordinate(selectedObject.position?.x)}</span>
+                <span className="coord y">Y: {safeFormatCoordinate(selectedObject.position?.y)}</span>
+                <span className="coord z">Z: {safeFormatCoordinate(selectedObject.position?.z)}</span>
               </div>
             </div>
-            
+
             <div className="info-item">
               <span className="info-label">Scale</span>
-              <motion.span 
+              <motion.span
                 className="scale-value"
-                animate={{ 
+                animate={{
                   color: selectedObject.isGrabbed ? '#ffaa00' : '#4CAF50',
                   scale: selectedObject.isGrabbed ? 1.1 : 1
                 }}
               >
-                {selectedObject.scale?.x?.toFixed(2) || '1.00'}x
+                {safeFormatScaleValue(selectedObject.scale)}x
               </motion.span>
             </div>
             

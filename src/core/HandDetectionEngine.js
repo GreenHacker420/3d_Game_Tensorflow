@@ -250,7 +250,7 @@ export class HandDetectionEngine {
       this.updateMovementTracking(filteredPredictions);
 
       // Update adaptive parameters based on results
-      this.updateAdaptiveParameters(enhancedPredictions, performance.now() - startTime);
+      this.updateAdaptiveParameters(filteredPredictions, performance.now() - startTime);
 
       return filteredPredictions;
     } catch (error) {

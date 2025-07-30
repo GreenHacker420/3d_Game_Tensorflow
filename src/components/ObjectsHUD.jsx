@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { safeFormatScaleValue, safeFormatInteger } from '../utils/formatUtils.js';
 
 /**
  * HUD component to display information about all interactive objects
@@ -101,10 +102,10 @@ const ObjectsHUD = ({
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-gray-300">
-                        Scale: {obj.scale?.toFixed(1) || '1.0'}
+                        Scale: {safeFormatScaleValue(obj.scale, 1)}
                       </div>
                       <div className="text-xs text-gray-400">
-                        Pos: ({obj.position?.x?.toFixed(0) || 0}, {obj.position?.y?.toFixed(0) || 0})
+                        Pos: ({safeFormatInteger(obj.position?.x)}, {safeFormatInteger(obj.position?.y)})
                       </div>
                     </div>
                   </div>

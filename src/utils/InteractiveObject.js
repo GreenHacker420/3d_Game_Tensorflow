@@ -325,9 +325,17 @@ export class InteractiveObject {
     return {
       id: this.id,
       type: this.type,
-      position: this.mesh.position,
-      scale: this.mesh.scaling,
-      rotation: this.mesh.rotation,
+      position: {
+        x: this.mesh.position.x,
+        y: this.mesh.position.y,
+        z: this.mesh.position.z
+      },
+      scale: this.mesh.scaling.x, // Use x component as uniform scale
+      rotation: {
+        x: this.mesh.rotation.x,
+        y: this.mesh.rotation.y,
+        z: this.mesh.rotation.z
+      },
       isSelected: this.isSelected,
       isGrabbed: this.isGrabbed,
       isActive: this.isActive,

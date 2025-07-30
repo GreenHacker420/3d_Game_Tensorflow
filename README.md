@@ -8,10 +8,12 @@ A cutting-edge 3D hand gesture-controlled game built with React 18, Babylon.js, 
 
 ### 🤖 Advanced Hand Tracking
 - **Real-time Hand Detection**: 60fps gesture recognition using TensorFlow.js MediaPipe
+- **Precise Overlay Alignment**: Accurate hand landmark visualization with perfect coordinate mapping
 - **Multiple Gesture Types**: Open hand, closed fist, pinch gestures with confidence scoring
 - **3D Motion Mode**: Full spatial hand tracking with calibration system
 - **Adaptive Detection**: Automatic adjustment for different lighting conditions
 - **Temporal Smoothing**: Reduces jitter and improves tracking stability
+- **Debug Tools**: Comprehensive coordinate debugging utilities for development
 
 ### 🎯 Interactive 3D Environment
 - **Babylon.js 3D Engine**: High-performance WebGL rendering
@@ -81,10 +83,12 @@ A cutting-edge 3D hand gesture-controlled game built with React 18, Babylon.js, 
 3. Enjoy full 3D spatial control with hand orientation tracking
 
 ### Tips for Best Experience
-- Ensure good lighting conditions
-- Keep your hand clearly visible to the camera
-- Maintain a distance of 1-3 feet from the camera
-- Use smooth, deliberate movements for better tracking
+- **Optimal Positioning**: Keep your hand centered in the camera view for best tracking accuracy
+- **Lighting**: Ensure good, even lighting conditions without harsh shadows
+- **Distance**: Maintain a distance of 1-3 feet from the camera for optimal detection
+- **Background**: Use a contrasting background to improve hand detection
+- **Movement**: Use smooth, deliberate movements for better tracking stability
+- **Calibration**: Use 3D Motion calibration for personalized tracking optimization
 
 ## 🛠️ Development
 
