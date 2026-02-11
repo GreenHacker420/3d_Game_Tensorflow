@@ -478,8 +478,8 @@ export class CyberObject {
         // Or typical telekinesis: Pinch/Grab controls Z?
         // Let's stick to the existing feel: Spread maps to Z depth.
 
-        const minDepth = 10;
-        const maxDepth = 40;
+        const minDepth = 30; // Closer to camera (Z ~ -20)
+        const maxDepth = 70; // Further from camera (Z ~ +20)
         const targetDepth = minDepth + normalizedSpread * (maxDepth - minDepth);
 
         return coordinateMapper.map(handState.position, targetDepth);
@@ -600,6 +600,13 @@ export class CyberObject {
     this.isGrabbed = false;
     this.lastHandPosition = null;
     this.setNormalAppearance();
+  }
+
+  /**
+   * Get object status (alias for getInfo to match ObjectManager expectations)
+   */
+  getStatus() {
+    return this.getInfo();
   }
 
   /**

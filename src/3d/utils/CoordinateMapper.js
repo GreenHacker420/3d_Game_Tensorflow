@@ -1,96 +1,69 @@
-import { Vector3, Matrix, Viewport } from "@babylonjs/core";
+import { Vector3, Matrix } from "@babylonjs/core";
 
-/**
- * Handles robust mapping of 2D screen/video coordinates to 3D world space
- */
 export class CoordinateMapper {
     constructor(scene) {
         this.scene = scene;
+
         this.videoElement = null;
-        this.depthScale = 20.0; // Scale factor for Z-depth
-        this.inputResolution = { width: 640, height: 480 }; // Default video resolution
-        this.screenResolution = { width: window.innerWidth, height: window.innerHeight };
+
+        this.inputResolution = { width: 640, height: 480 };
+        this.screenResolution = { width: 1, height: 1 };
+
+        this.depthScale = 0.4;     // depth sensitivity
+        this.baseDepth = 50.0;      // Distance to Z=0 plane (approx)
+
+        this.mirrorX = true;       // webcam mirror toggle
     }
 
-    /**
-     * Set the video element size for normalization
-     * @param {HTMLVideoElement} video 
-     */
     setVideoSource(video) {
         this.videoElement = video;
         this.inputResolution.width = video.videoWidth || 640;
         this.inputResolution.height = video.videoHeight || 480;
     }
 
-    /**
-     * Update screen resolution (call on resize)
-     */
     resize() {
-        if (this.scene && this.scene.getEngine()) {
-            this.screenResolution.width = this.scene.getEngine().getRenderWidth();
-            this.screenResolution.height = this.scene.getEngine().getRenderHeight();
-        }
+        const engine = this.scene?.getEngine();
+        if (!engine) return;
+
+        this.screenResolution.width = engine.getRenderWidth();
+        this.screenResolution.height = engine.getRenderHeight();
     }
 
-    /**
-     * Map 2D hand coordinates to 3D world position
-     * @param {Object} handPosition - { x, y, z } from HandDetectionEngine
-     * @param {number} targetDepth - Optional fixed depth (distance from camera)
-     * @returns {Vector3} World position
-     */
-    map(handPosition, targetDepth = null) {
-        if (!this.scene.activeCamera) {
-            return Vector3.Zero();
-        }
+    map(hand, targetDepth = null) {
+        const camera = this.scene.activeCamera;
+        if (!camera) return Vector3.Zero();
 
-        // 1. Normalize 2D coordinates [-1, 1]
-        // Hand coordinates are usually [0, width] and [0, height]
-        // We assume input is mirror-flipped relative to screen if it's webcam, 
-        // but the engine might already handle that.
-        // Usually, x=0 is left, but webcam is often mirrored.
+        /* -----------------------------
+         * 1. Normalize video → NDC
+         * ----------------------------- */
+        let x = hand.x / this.inputResolution.width;
+        let y = hand.y / this.inputResolution.height;
 
-        const normalizedX = (handPosition.x / this.inputResolution.width) * 2 - 1;
-        const normalizedY = -((handPosition.y / this.inputResolution.height) * 2 - 1); // Flip Y for 3D space
+        if (this.mirrorX) x = 1 - x;
 
-        // 2. Determine Depth
-        // handPosition.z is usually normalized [0, 1] or similar from the engine
-        // We map this to a distance from the camera
-        const zDistance = targetDepth !== null
-            ? targetDepth
-            : 10 + (handPosition.z || 0) * this.depthScale;
+        const ndcX = x * 2 - 1;
+        const ndcY = -(y * 2 - 1);
 
-        // 3. Unproject
-        // We want to find the point in world space that corresponds to (normalizedX, normalizedY) at distance zDistance
-
-        // Create a point on the near plane? No, we can use Unproject.
-        // Actually, simple unproject with depth is tricky.
-        // Alternative: Create a ray and scale it.
-
-        const identity = Matrix.Identity();
-        const viewport = new Viewport(0, 0, 1, 1);
-
-        // Unproject expects screen coordinates in pixels? No, depends on implementation.
-        // Babylon Vector3.Unproject parameters:
-        // source (Vector3), viewportWidth, viewportHeight, world, view, projection
-
-        // Let's use scene.pickWithRay or scene.createPickingRay if we want to hit a plane.
-        // But we want "air" control.
-
-        // Simplified robust approach:
-        // Project (normalizedX, normalizedY) onto a plane at `zDistance` from camera.
+        /* -----------------------------
+         * 2. Create camera ray
+         * ----------------------------- */
+        const screenX = (ndcX * 0.5 + 0.5) * this.screenResolution.width;
+        const screenY = (ndcY * -0.5 + 0.5) * this.screenResolution.height;
 
         const ray = this.scene.createPickingRay(
-            handPosition.x * (this.screenResolution.width / this.inputResolution.width),
-            handPosition.y * (this.screenResolution.height / this.inputResolution.height),
+            screenX,
+            screenY,
             Matrix.Identity(),
-            this.scene.activeCamera
+            camera
         );
 
-        // Get point along the ray at zDistance
-        if (ray) {
-            return ray.origin.add(ray.direction.scale(zDistance));
-        }
+        /* -----------------------------
+         * 3. Depth along ray
+         * ----------------------------- */
+        const depth = targetDepth !== null
+            ? targetDepth
+            : this.baseDepth + (hand.z ?? 0) * this.depthScale;
 
-        return Vector3.Zero();
+        return ray.origin.add(ray.direction.scale(depth));
     }
 }

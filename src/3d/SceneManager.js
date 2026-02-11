@@ -81,6 +81,7 @@ export class SceneManager {
 
       // Initialize Coordinate Mapper
       this.coordinateMapper = new CoordinateMapper(this.scene);
+      this.scene.getCoordinateMapper = () => this.coordinateMapper;
       this.coordinateMapper.resize(); // Initial resize
 
       // Initialize Object Manager

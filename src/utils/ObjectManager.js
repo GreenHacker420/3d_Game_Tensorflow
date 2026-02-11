@@ -235,15 +235,25 @@ export class ObjectManager {
     let closestObject = null;
     let closestDistance = Infinity;
 
-    // Map hand position to 3D space
-    const handX = ((handPosition.x / 640) * 100) - 50;
-    const handY = ((1 - handPosition.y / 480) * 80) - 40;
+    // Use CoordinateMapper if available for accurate world position
+    let worldPos;
+    const coordinateMapper = this.scene.getCoordinateMapper ? this.scene.getCoordinateMapper() : null;
+
+    if (coordinateMapper) {
+      // Map to Z=0 plane (base depth approx 50 units from camera)
+      worldPos = coordinateMapper.map(handPosition, 50);
+    } else {
+      // Fallback or fail
+      return null;
+    }
 
     this.objects.forEach(obj => {
       const objPos = obj.mesh.position;
+      // Calculate 2D distance on the XY plane (ignoring Z depth difference for selection tolerance)
+      // This allows selecting objects at different depths comfortably
       const distance = Math.sqrt(
-        Math.pow(objPos.x - handX, 2) +
-        Math.pow(objPos.y - handY, 2)
+        Math.pow(objPos.x - worldPos.x, 2) +
+        Math.pow(objPos.y - worldPos.y, 2)
       );
 
       if (distance < closestDistance) {
@@ -252,7 +262,7 @@ export class ObjectManager {
       }
     });
 
-    return closestDistance < 30 ? closestObject : null; // Within 30 units
+    return closestDistance < 30 ? closestObject : null; // Keep threshold
   }
 
   // Get all object statuses for UI

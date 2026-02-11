@@ -110,7 +110,8 @@ export default function App() {
     getAllObjects,
     getSelectedObject,
     selectObject,
-    getGestureCompatibility
+    getGestureCompatibility,
+    setVideoElement
   } = use3DScene(sceneCanvasRef);
 
   // Initialize Lenis smooth scrolling
@@ -184,6 +185,11 @@ export default function App() {
           if (videoElement && sceneCanvasRef.current) {
             console.log('🎯 Initializing adaptive mapper with video and scene elements');
             await initializeAdaptiveMapper(videoElement, sceneCanvasRef.current);
+
+            // Pass video element to SceneManager for CoordinateMapper
+            if (setVideoElement) {
+              setVideoElement(videoElement);
+            }
           }
         }, 1000); // Give time for webcam to initialize
       }
