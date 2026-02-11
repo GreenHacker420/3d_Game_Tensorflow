@@ -100,30 +100,84 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ className }) => {
     };
 
     return (
-        <div className={cn("relative w-full h-full bg-black overflow-hidden", className)}>
-            {/* 3D Canvas */}
-            <canvas
-                ref={canvasRef}
-                className="w-full h-full block touch-none outline-none"
-                id="renderCanvas"
-            />
+        <div className={cn("w-full min-h-screen bg-black p-4 md:p-10 font-sans", className)}>
+            <div className="max-w-7xl mx-auto mb-8 flex justify-between items-end border-b border-white/10 pb-4">
+                <div>
+                    <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 tracking-tighter">
+                        HAND POSE 3D
+                    </h1>
+                    <p className="text-neutral-500 text-sm mt-1 uppercase tracking-widest">
+                        Next.js 16 • Babylon.js • TensorFlow
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className={cn("w-3 h-3 rounded-full animate-pulse", isLoaded ? "bg-green-500 shadow-[0_0_10px_#22c55e]" : "bg-yellow-500 shadow-[0_0_10px_#eab308]")} />
+                    <span className="text-white/60 text-xs font-mono">{isLoaded ? "SYSTEM ONLINE" : "INITIALIZING..."}</span>
+                </div>
+            </div>
 
-            {/* Webcam Feed (Component) */}
-            <WebcamFeed onStreamReady={onStreamReady} />
-
-            {/* HUD Overlay */}
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-start items-center pt-10 px-4">
-                <h1 className="text-4xl md:text-6xl font-bold font-mono text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)] tracking-tighter">
-                    HAND POSE 3D
-                </h1>
-                <p className="text-cyan-200/60 text-sm mt-2 uppercase tracking-widest">Next.js 16 • Babylon.js • TensorFlow</p>
-
-                {!isLoaded && (
-                    <div className="mt-10 px-6 py-3 bg-black/50 backdrop-blur-md border border-yellow-500/30 rounded-full flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-ping" />
-                        <span className="text-yellow-400 font-mono text-xs uppercase tracking-wider">Initializing Neural Net...</span>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-7xl mx-auto h-[75vh]">
+                {/* Main Play Area (Bento Large Item) */}
+                <div className="md:col-span-3 h-full relative group rounded-3xl border border-white/10 bg-neutral-900/50 overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:30px_30px]" />
+                    <div className="absolute top-4 left-6 z-10 px-3 py-1 bg-black/40 backdrop-blur rounded-full border border-white/10 text-xs text-white/70 font-mono tracking-wider">
+                        LIVE SIMULATION
                     </div>
-                )}
+
+                    <canvas
+                        ref={canvasRef}
+                        className="w-full h-full block touch-none outline-none relative z-0"
+                        id="renderCanvas"
+                    />
+
+                    {/* Overlay Gradient */}
+                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-50" />
+                </div>
+
+                {/* Sidebar Area */}
+                <div className="md:col-span-1 flex flex-col gap-6 h-full">
+
+                    {/* Camera Card */}
+                    <div className="relative rounded-3xl border border-white/10 bg-neutral-900/50 overflow-hidden h-1/3 p-1">
+                        <div className="absolute top-3 left-4 z-20 text-[10px] text-white/40 uppercase tracking-widest font-mono">OPTICAL FEED</div>
+                        <div className="w-full h-full rounded-2xl overflow-hidden relative">
+                            <WebcamFeed onStreamReady={onStreamReady} className="opacity-80 hover:opacity-100 transition-opacity duration-500" />
+                            {/* Scanline Effect */}
+                            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px]" />
+                        </div>
+                    </div>
+
+                    {/* Stats / Controls Card */}
+                    <div className="flex-1 rounded-3xl border border-white/10 bg-neutral-900/50 p-6 flex flex-col relative overflow-hidden">
+                        <div className="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                        <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                            <span className="text-cyan-400">❖</span> TELEMETRY
+                        </h3>
+
+                        <div className="space-y-4 font-mono text-xs">
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                <span className="text-white/40">STATUS</span>
+                                <span className={isLoaded ? "text-green-400" : "text-yellow-400"}>{isLoaded ? "ACTIVE" : "LOADING"}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                <span className="text-white/40">FPS</span>
+                                <span className="text-white">60</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                <span className="text-white/40">INPUT</span>
+                                <span className="text-white">{videoRef.current ? "VIDEO STREAM" : "NO SIGNAL"}</span>
+                            </div>
+
+                            <div className="mt-6 p-3 rounded bg-black/40 border border-white/5 text-white/50 leading-relaxed">
+                                &gt; Waiting for user input...<br />
+                                &gt; Hand tracking algorithms initialized.<br />
+                                &gt; 3D Engine ready.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     );

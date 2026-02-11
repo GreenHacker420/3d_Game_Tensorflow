@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { cn } from '@/lib/utils/cn';
 
 export type WebcamFeedHandle = {
     video: HTMLVideoElement | null;
@@ -10,13 +11,12 @@ interface WebcamFeedProps {
     onStreamReady?: (video: HTMLVideoElement) => void;
 }
 
-const WebcamFeed = forwardRef<WebcamFeedHandle, WebcamFeedProps>(({ onStreamReady }, ref) => {
+const WebcamFeed = forwardRef<WebcamFeedHandle, WebcamFeedProps & { className?: string }>(({ onStreamReady, className }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
 
     useImperativeHandle(ref, () => ({
         video: videoRef.current
     }));
-
     useEffect(() => {
         async function setupCamera() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -50,11 +50,10 @@ const WebcamFeed = forwardRef<WebcamFeedHandle, WebcamFeedProps>(({ onStreamRead
 
         setupCamera();
     }, [onStreamReady]);
-
     return (
         <video
             ref={videoRef}
-            className="absolute bottom-4 left-4 w-48 h-36 border-2 border-cyan-500 rounded-lg transform scale-x-[-1] opacity-80"
+            className={cn("w-full h-full object-cover transform scale-x-[-1]", className)}
             playsInline
             muted
         />
