@@ -14,7 +14,11 @@ export class SceneManager {
 
         // Create Scene
         this.scene = new BABYLON.Scene(this.engine);
-        this.scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.2, 1); // Dark blue-ish background
+        // DEBUG: Bright purple background to confirm rendering
+        this.scene.clearColor = new BABYLON.Color4(0.5, 0.2, 0.5, 1);
+
+        // Initial resize to ensure canvas resolution is correct
+        this.engine.resize();
 
         // Create Camera
         // Using UniversalCamera for consistent game view
@@ -29,13 +33,20 @@ export class SceneManager {
         light.intensity = 0.7;
 
         // Create Debug Mesh (Spinning Box)
-        const box = BABYLON.MeshBuilder.CreateBox("debugBox", { size: 1 }, this.scene);
-        box.position.y = 0;
+        this.box = BABYLON.MeshBuilder.CreateBox("debugBox", { size: 1 }, this.scene);
+        this.box.position.y = 0;
+
+        // Create Hand Mesh (Sphere)
+        this.handMesh = BABYLON.MeshBuilder.CreateSphere("handMesh", { diameter: 0.5 }, this.scene);
+        const handMat = new BABYLON.StandardMaterial("handMat", this.scene);
+        handMat.emissiveColor = new BABYLON.Color3(0, 1, 1); // Cyan glow
+        this.handMesh.material = handMat;
+        this.handMesh.position.y = 100; // Hide initially
 
         // Simple animation loop for the box
         this.scene.registerBeforeRender(() => {
-            box.rotation.y += 0.01;
-            box.rotation.x += 0.01;
+            this.box.rotation.y += 0.01;
+            this.box.rotation.x += 0.01;
         });
 
         // Start Render Loop
@@ -50,6 +61,13 @@ export class SceneManager {
 
         console.log("✅ SceneManager initialized");
         return this.scene;
+    }
+
+    updateHandPosition(position) {
+        if (this.handMesh && position) {
+            // Lerp for smoothness
+            this.handMesh.position = BABYLON.Vector3.Lerp(this.handMesh.position, position, 0.2);
+        }
     }
 
     dispose() {
