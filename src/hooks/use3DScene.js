@@ -1,9 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import useGameStore from '../store/gameStore.js';
 import SceneManager from '../3d/SceneManager.js';
 import CameraController from '../3d/CameraController.js';
 import LightingManager from '../3d/LightingManager.js';
 import EnvironmentRenderer from '../3d/EnvironmentRenderer.js';
-import InteractiveCube from '../objects/InteractiveCube.js';
 import { ObjectManager } from '../utils/ObjectManager.js';
 
 /**
@@ -22,8 +22,6 @@ export const use3DScene = (canvasRef) => {
   const cameraControllerRef = useRef(null);
   const lightingManagerRef = useRef(null);
   const environmentRendererRef = useRef(null);
-  const interactiveCubeRef = useRef(null);
-  const objectManagerRef = useRef(null);
 
   /**
    * Initialize 3D scene
@@ -42,6 +40,23 @@ export const use3DScene = (canvasRef) => {
       sceneManagerRef.current = new SceneManager(canvasRef.current);
       sceneManagerRef.current.setErrorCallback(setError);
 
+      // Setup game events
+      sceneManagerRef.current.setGameEventCallback((type, data) => {
+        const state = useGameStore.getState();
+        if (state.gameState !== 'playing') return;
+
+        switch (type) {
+          case 'UPLOAD':
+            state.addScore(100);
+            console.log(`🚀 Uploaded ${data.objectName}!`);
+            break;
+          case 'GLITCH':
+            state.loseLife();
+            console.log('⚠️ Glitch Zone Hit!');
+            break;
+        }
+      });
+
       console.log('🎬 Loading 3D scene...');
       const scene = await sceneManagerRef.current.initialize();
       console.log('✅ 3D scene loaded');
@@ -57,14 +72,6 @@ export const use3DScene = (canvasRef) => {
       // Initialize environment
       environmentRendererRef.current = new EnvironmentRenderer(scene);
       await environmentRendererRef.current.initialize();
-
-      // Initialize interactive cube
-      interactiveCubeRef.current = new InteractiveCube(scene);
-      interactiveCubeRef.current.initialize();
-
-      // Initialize object manager for multi-object interactions
-      objectManagerRef.current = new ObjectManager(scene);
-      console.log('✅ ObjectManager initialized with multiple interactive objects');
 
       // Start render loop
       sceneManagerRef.current.startRenderLoop();
@@ -84,79 +91,49 @@ export const use3DScene = (canvasRef) => {
    * Update objects with hand gesture (supports both single cube and multi-object modes)
    */
   const updateCubeWithHand = useCallback((handState, use3DMode = false) => {
-    if (!handState.isTracking) {
+    if (!handState.isTracking || !sceneManagerRef.current) {
       return;
     }
 
-    // Try ObjectManager first for multi-object interactions
-    if (objectManagerRef.current) {
-      const handled = objectManagerRef.current.handleGesture(handState.gesture, handState);
+    const objectManager = sceneManagerRef.current.getObjectManager();
+    if (objectManager) {
+      const handled = objectManager.handleGesture(handState.gesture, handState);
       if (handled) {
         // Update objects info for UI
-        const allObjects = objectManagerRef.current.getAllObjectStatuses();
+        const allObjects = objectManager.getAllObjectStatuses();
         setObjectsInfo(allObjects);
 
-        const selected = objectManagerRef.current.getSelectedObjectStatus();
+        const selected = objectManager.getSelectedObjectStatus();
         setSelectedObject(selected);
 
-        // Also update cube info for backward compatibility
-        if (interactiveCubeRef.current) {
-          const cubeInfo = interactiveCubeRef.current.getInfo();
-          setCubeInfo(cubeInfo);
+        // Update cube info (legacy support for HUD)
+        if (selected) {
+          setCubeInfo(selected);
+        } else if (allObjects.length > 0) {
+          setCubeInfo(allObjects[0]);
         }
-        return;
       }
     }
-
-    // Fallback to single cube interaction
-    if (interactiveCubeRef.current) {
-      interactiveCubeRef.current.handleGesture(handState.gesture, handState, use3DMode);
-      const info = interactiveCubeRef.current.getInfo();
-      setCubeInfo(info);
-    }
   }, []);
 
   /**
-   * Reset cube to initial state
+   * Reset all objects to initial state
    */
   const resetCube = useCallback(() => {
-    if (interactiveCubeRef.current) {
-      interactiveCubeRef.current.reset();
-      setCubeInfo(interactiveCubeRef.current.getInfo());
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    if (objectManager) {
+      objectManager.resetAll();
+
+      // Update info
+      const allObjects = objectManager.getAllObjectStatuses();
+      setObjectsInfo(allObjects);
+
+      // Select first object as default if none selected
+      if (!selectedObject && allObjects.length > 0) {
+        setCubeInfo(allObjects[0]);
+      }
     }
-  }, []);
-
-  /**
-   * Get all interactive objects information
-   */
-  const getAllObjects = useCallback(() => {
-    return objectManagerRef.current ? objectManagerRef.current.getAllObjectStatuses() : [];
-  }, []);
-
-  /**
-   * Get selected object information
-   */
-  const getSelectedObject = useCallback(() => {
-    return objectManagerRef.current ? objectManagerRef.current.getSelectedObjectStatus() : null;
-  }, []);
-
-  /**
-   * Select object by ID
-   */
-  const selectObject = useCallback((objectId) => {
-    if (objectManagerRef.current) {
-      objectManagerRef.current.selectObject(objectId);
-      const selected = objectManagerRef.current.getSelectedObjectStatus();
-      setSelectedObject(selected);
-    }
-  }, []);
-
-  /**
-   * Get gesture compatibility for current selection
-   */
-  const getGestureCompatibility = useCallback((gesture) => {
-    return objectManagerRef.current ? objectManagerRef.current.getGestureCompatibility(gesture) : [];
-  }, []);
+  }, [selectedObject]);
 
   /**
    * Set lighting preset
@@ -165,26 +142,66 @@ export const use3DScene = (canvasRef) => {
     if (lightingManagerRef.current) {
       lightingManagerRef.current.setLightingPreset(preset);
     }
-    if (environmentRendererRef.current) {
-      environmentRendererRef.current.setEnvironmentPreset(preset);
+  }, []);
+
+  /**
+   * Get all interactive objects information
+   */
+  const getAllObjects = useCallback(() => {
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    return objectManager ? objectManager.getAllObjectStatuses() : [];
+  }, []);
+
+  /**
+   * Get selected object information
+   */
+  const getSelectedObject = useCallback(() => {
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    return objectManager ? objectManager.getSelectedObjectStatus() : null;
+  }, []);
+
+  /**
+   * Select object by ID
+   */
+  const selectObject = useCallback((objectId) => {
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    if (objectManager) {
+      objectManager.selectObject(objectId);
+      const selected = objectManager.getSelectedObjectStatus();
+      setSelectedObject(selected);
     }
   }, []);
 
   /**
-   * Focus camera on cube
+   * Get gesture compatibility for current selection
+   */
+  const getGestureCompatibility = useCallback((gesture) => {
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    return objectManager ? objectManager.getGestureCompatibility(gesture) : [];
+  }, []);
+
+  /**
+   * Get cube instance (legacy)
+   */
+  const getCube = useCallback(() => {
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    return objectManager?.selectedObject || null;
+  }, []);
+
+  /**
+   * Focus camera on selected object
    */
   const focusOnCube = useCallback(() => {
-    if (cameraControllerRef.current && interactiveCubeRef.current) {
-      const cubeMesh = interactiveCubeRef.current.getMesh();
-      if (cubeMesh) {
-        cameraControllerRef.current.focusOnTarget(cubeMesh.position);
+    const objectManager = sceneManagerRef.current?.getObjectManager();
+    if (cameraControllerRef.current && objectManager) {
+      const selected = objectManager.selectedObject;
+      if (selected && selected.getMesh()) {
+        cameraControllerRef.current.focusOnTarget(selected.getMesh().position);
       }
     }
   }, []);
 
-  /**
-   * Reset camera to default position
-   */
+  // Reset camera to default position
   const resetCamera = useCallback(() => {
     if (cameraControllerRef.current) {
       cameraControllerRef.current.resetToDefault();
@@ -192,88 +209,53 @@ export const use3DScene = (canvasRef) => {
   }, []);
 
   /**
-   * Get scene performance info
+   * Get performance info
    */
   const getPerformanceInfo = useCallback(() => {
-    return sceneManagerRef.current?.getPerformanceInfo() || { fps: 0, deltaTime: 0 };
+    return sceneManagerRef.current ? sceneManagerRef.current.getPerformanceInfo() : { fps: 0, deltaTime: 0 };
   }, []);
 
   /**
    * Get scene instance
    */
   const getScene = useCallback(() => {
-    return sceneManagerRef.current?.getScene() || null;
+    return sceneManagerRef.current ? sceneManagerRef.current.getScene() : null;
   }, []);
 
   /**
-   * Set adaptive mapper for the scene
-   * @param {Object} adaptiveMapper - Adaptive mapper instance
-   */
-  const setAdaptiveMapper = useCallback((adaptiveMapper) => {
-    if (sceneManagerRef.current) {
-      sceneManagerRef.current.setAdaptiveMapper(adaptiveMapper);
-    }
-  }, []);
-
-  /**
-   * Set video element for adaptive mapping
-   * @param {HTMLVideoElement} videoElement - Video element
-   */
-  const setVideoElement = useCallback((videoElement) => {
-    if (sceneManagerRef.current) {
-      sceneManagerRef.current.setVideoElement(videoElement);
-    }
-  }, []);
-
-  /**
-   * Get cube instance
-   */
-  const getCube = useCallback(() => {
-    return interactiveCubeRef.current || null;
-  }, []);
-
-  /**
-   * Resize scene
+   * Manual resize trigger
    */
   const resize = useCallback(() => {
-    if (sceneManagerRef.current) {
-      const engine = sceneManagerRef.current.getEngine();
-      if (engine) {
-        engine.resize();
-      }
+    if (sceneManagerRef.current && sceneManagerRef.current.engine) {
+      sceneManagerRef.current.engine.resize();
+    }
+    if (sceneManagerRef.current && sceneManagerRef.current.coordinateMapper) {
+      sceneManagerRef.current.coordinateMapper.resize();
     }
   }, []);
 
   /**
-   * Initialize scene when canvas is ready
+   * Set adaptive mapper
    */
-  useEffect(() => {
-    if (canvasRef.current && !isInitialized && !isLoading) {
-      initialize();
+  const setAdaptiveMapper = useCallback((mapper) => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setAdaptiveMapper(mapper);
     }
-  }, [initialize, isInitialized, isLoading]);
+  }, []);
 
   /**
-   * Handle window resize
+   * Set video element for mapping
    */
-  useEffect(() => {
-    const handleResize = () => {
-      resize();
-    };
+  const setVideoElement = useCallback((video) => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.setVideoElement(video);
+    }
+  }, []);
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [resize]);
-
-  /**
-   * Cleanup on unmount
-   */
+  // Dispose scene on unmount
   useEffect(() => {
     return () => {
       // Dispose in reverse order
-      if (interactiveCubeRef.current) {
-        interactiveCubeRef.current.dispose();
-      }
       if (environmentRendererRef.current) {
         environmentRendererRef.current.dispose();
       }
@@ -324,9 +306,7 @@ export const use3DScene = (canvasRef) => {
     sceneManager: sceneManagerRef.current,
     cameraController: cameraControllerRef.current,
     lightingManager: lightingManagerRef.current,
-    environmentRenderer: environmentRendererRef.current,
-    interactiveCube: interactiveCubeRef.current,
-    objectManager: objectManagerRef.current
+    environmentRenderer: environmentRendererRef.current
   };
 };
 

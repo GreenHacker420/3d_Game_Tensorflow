@@ -3,8 +3,12 @@ import {
   Scene,
   Color3,
   Vector3,
-  ActionManager
+  ActionManager,
+  DefaultRenderingPipeline
 } from "@babylonjs/core";
+import { CoordinateMapper } from './utils/CoordinateMapper.js';
+import { ObjectManager } from '../utils/ObjectManager.js';
+import { GameZone } from '../objects/GameZone.js';
 
 /**
  * Manages the main 3D scene setup and lifecycle
@@ -22,6 +26,17 @@ export class SceneManager {
     // Store references for adaptive mapping
     this.videoElement = null;
     this.adaptiveMapper = null;
+
+    // New Coordinate Mapper
+    this.coordinateMapper = null;
+
+    // Game Objects
+    this.objectManager = null;
+    this.gameZones = [];
+    this.score = 0;
+
+    // Game Event Callback
+    this.onGameEvent = null;
   }
 
   /**
@@ -61,6 +76,19 @@ export class SceneManager {
       // Setup automatic resize
       this.setupResize();
 
+      // Setup Post-Processing (Visual Overhaul)
+      this.setupPostProcessing();
+
+      // Initialize Coordinate Mapper
+      this.coordinateMapper = new CoordinateMapper(this.scene);
+      this.coordinateMapper.resize(); // Initial resize
+
+      // Initialize Object Manager
+      this.objectManager = new ObjectManager(this.scene);
+
+      // Initialize Game Zones
+      this.initializeGameZones();
+
       this.isInitialized = true;
       console.log('✅ 3D Scene initialized successfully');
 
@@ -71,6 +99,47 @@ export class SceneManager {
       console.error('❌', errorMessage);
       this.notifyError(errorMessage);
       throw error;
+    }
+  }
+
+  /**
+   * Setup post-processing effects
+   */
+  setupPostProcessing() {
+    if (!this.scene || !this.scene.activeCamera || !this.engine) return;
+
+    try {
+      // Dynamic import to avoid circular dependencies if any, though likely not needed for standard lib
+      // using standard import for now as they are core
+
+      this.pipeline = new DefaultRenderingPipeline(
+        "cyber-pipeline", // The name of the pipeline
+        true, // hdr?
+        this.scene, // The scene instance
+        [this.scene.activeCamera] // The list of cameras to be attached to
+      );
+
+      // Enable Bloom (Glow)
+      this.pipeline.glowLayerEnabled = true;
+      this.pipeline.bloomEnabled = true;
+      this.pipeline.bloomThreshold = 0.6; // Threshold for glowing
+      this.pipeline.bloomWeight = 0.4; // Intensity
+      this.pipeline.bloomKernel = 64; // Blur amount
+      this.pipeline.bloomScale = 0.5;
+
+      // Chromatic Aberration (Glitch effect)
+      this.pipeline.chromaticAberrationEnabled = true;
+      this.pipeline.chromaticAberration.aberrationAmount = 5; // Slight shift
+      this.pipeline.chromaticAberration.radialIntensity = 0.5;
+
+      // Grain (Film Noise)
+      this.pipeline.grainEnabled = true;
+      this.pipeline.grain.intensity = 8;
+      this.pipeline.grain.animated = true;
+
+      console.log('✨ Post-processing pipeline initialized');
+    } catch (error) {
+      console.warn('⚠️ Failed to setup post-processing:', error);
     }
   }
 
@@ -86,6 +155,9 @@ export class SceneManager {
     this.renderLoop = () => {
       try {
         if (this.scene && this.scene.activeCamera && this.scene.isReady()) {
+          // Game Loop Updates
+          this.updateGameLoop();
+
           this.scene.render();
         }
       } catch (error) {
@@ -160,6 +232,9 @@ export class SceneManager {
     window.addEventListener('resize', () => {
       if (this.engine && !this.isDisposed) {
         this.engine.resize();
+        if (this.coordinateMapper) {
+          this.coordinateMapper.resize();
+        }
       }
     });
   }
@@ -243,6 +318,14 @@ export class SceneManager {
   }
 
   /**
+   * Get coordinate mapper
+   * @returns {CoordinateMapper} Coordinate mapper instance
+   */
+  getCoordinateMapper() {
+    return this.coordinateMapper;
+  }
+
+  /**
    * Set video element reference for adaptive mapping
    * @param {HTMLVideoElement} videoElement - Video element
    */
@@ -253,6 +336,104 @@ export class SceneManager {
     if (this.scene) {
       this.scene.videoElement = videoElement;
     }
+
+    if (this.coordinateMapper) {
+      this.coordinateMapper.setVideoSource(videoElement);
+    }
+  }
+
+  /**
+   * Initialize game zones
+   */
+  initializeGameZones() {
+    // Upload Zone (Green) - Target
+    const uploadZone = new GameZone(this.scene, new Vector3(30, 0, 10), 'upload');
+    this.gameZones.push(uploadZone);
+
+    // Glitch Zone (Red) - Hazard
+    const glitchZone = new GameZone(this.scene, new Vector3(-30, 5, 10), 'glitch');
+    this.gameZones.push(glitchZone);
+  }
+
+  /**
+   * Main game loop update
+   */
+  updateGameLoop() {
+    // Update object physics/logic
+    if (this.objectManager) {
+      this.objectManager.update();
+    }
+
+    // Check collisions
+    this.checkCollisions();
+  }
+
+  /**
+   * Check collisions between objects and zones
+   */
+  checkCollisions() {
+    if (!this.objectManager || this.gameZones.length === 0) return;
+
+    this.objectManager.objects.forEach((obj, id) => {
+      // Only check active objects that are not already interacting?
+      // Or continuously check.
+
+      this.gameZones.forEach(zone => {
+        if (zone.checkOverlap(obj.mesh)) {
+          this.handleZoneInteraction(zone, obj);
+        }
+      });
+    });
+  }
+
+  /**
+   * Handle interaction between zone and object
+   */
+  handleZoneInteraction(zone, obj) {
+    if (zone.type === 'upload') {
+      // If object is released in upload zone? Or just touches?
+      // Let's require it to be NOT grabbed to count as upload (drop it in)
+      if (!obj.isGrabbed) {
+        // Successful upload!
+        this.emitGameEvent('UPLOAD', { objectId: obj.id, objectName: obj.name });
+
+        // Visual feedback on object?
+        obj.mesh.scaling.scaleInPlace(0.95); // Shrink effect
+        if (obj.mesh.scaling.x < 0.1) {
+          // Respawn or dispose
+          obj.reset();
+        }
+      }
+    } else if (zone.type === 'glitch') {
+      // Hazard! Reset immediately
+      this.emitGameEvent('GLITCH', { objectId: obj.id });
+
+      obj.velocity = obj.velocity.scale(-1.5); // Bounce back hard
+      obj.createCollisionEffect();
+    }
+  }
+
+  /**
+   * Set game event callback
+   */
+  setGameEventCallback(callback) {
+    this.onGameEvent = callback;
+  }
+
+  /**
+   * Emit game event
+   */
+  emitGameEvent(type, data) {
+    if (this.onGameEvent) {
+      this.onGameEvent(type, data);
+    }
+  }
+
+  /**
+   * Get object manager
+   */
+  getObjectManager() {
+    return this.objectManager;
   }
 
   /**

@@ -3,11 +3,13 @@ import {
   StandardMaterial,
   HDRCubeTexture,
   Texture,
-  Color3
+  Color3,
+  MirrorTexture,
+  Plane
 } from "@babylonjs/core";
 
 // Import HDR environment texture
-import moonlitGolfHDRUrl from '../utils/moonlit_golf_2k.hdr?url';
+
 
 /**
  * Manages environment rendering including skybox and ground
@@ -31,7 +33,7 @@ export class EnvironmentRenderer {
     try {
       await this.createSkybox();
       this.createGround();
-      
+
       this.isInitialized = true;
       console.log('✅ Environment initialized successfully');
 
@@ -46,37 +48,23 @@ export class EnvironmentRenderer {
    */
   async createSkybox() {
     try {
-      // Create skybox mesh
-      this.skybox = MeshBuilder.CreateBox("Skybox", { size: 300.0 }, this.scene);
+      // 1. Digital Night Sky
+      this.skybox = MeshBuilder.CreateBox("Skybox", { size: 1000.0 }, this.scene);
       this.skybox.infiniteDistance = true;
 
-      // Create skybox material
       const skyboxMaterial = new StandardMaterial("SkyboxMaterial", this.scene);
       skyboxMaterial.backFaceCulling = false;
       skyboxMaterial.disableLighting = true;
+      skyboxMaterial.diffuseColor = Color3.Black();
+      skyboxMaterial.specularColor = Color3.Black();
+      skyboxMaterial.emissiveColor = Color3.FromHexString("#020205"); // Very dark cyber blue
 
-      // Load HDR texture
-      const hdrTexture = new HDRCubeTexture(
-        moonlitGolfHDRUrl, 
-        this.scene, 
-        512, 
-        false, 
-        true, 
-        false, 
-        true
-      );
-
-      hdrTexture.coordinatesMode = Texture.SKYBOX_MODE;
-      skyboxMaterial.reflectionTexture = hdrTexture;
-
-      // Apply material to skybox
       this.skybox.material = skyboxMaterial;
-
-      console.log('✅ Skybox created successfully');
+      console.log('✅ Cyber Skybox created successfully');
 
     } catch (error) {
-      console.warn('⚠️ Failed to load HDR skybox, using fallback:', error);
-      this.createFallbackSkybox();
+      console.warn('⚠️ Failed to create skybox:', error);
+      // Fallback not needed for simple material box
     }
   }
 
@@ -103,32 +91,56 @@ export class EnvironmentRenderer {
   }
 
   /**
-   * Create ground plane
+   * Create Digital Grid Ground
    */
   createGround() {
-    // Create ground mesh
+    // 1. Main Grid Ground (Simple Wireframe)
     this.ground = MeshBuilder.CreateGround(
-      "Ground", 
-      { width: 200, height: 200 }, 
+      "Ground",
+      { width: 500, height: 500, subdivisions: 20 },
       this.scene
     );
 
-    // Create ground material
+    // Grid Material
     const groundMaterial = new StandardMaterial("GroundMaterial", this.scene);
-    groundMaterial.diffuseColor = new Color3(0.3, 0.3, 0.3);
-    groundMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
-    groundMaterial.roughness = 0.8;
+    groundMaterial.diffuseColor = Color3.Black();
+    groundMaterial.specularColor = Color3.Black();
+    groundMaterial.emissiveColor = Color3.FromHexString("#00FFFF"); // Cyan grid
+    groundMaterial.alpha = 0.3;
+    groundMaterial.wireframe = true;
 
-    // Apply material
     this.ground.material = groundMaterial;
-
-    // Position ground
     this.ground.position.y = -20;
-
-    // Enable collisions
     this.ground.checkCollisions = true;
 
-    console.log('✅ Ground created successfully');
+    // 2. Reflection Plane (Cyber "Wet Floor" look)
+    const mirrorGround = MeshBuilder.CreateGround("MirrorGround", { width: 500, height: 500 }, this.scene);
+    mirrorGround.position.y = -21;
+
+    // Check if MirrorTexture is available (it should be from imports)
+    try {
+      const mirrorMat = new StandardMaterial("MirrorMat", this.scene);
+      mirrorMat.diffuseColor = Color3.Black();
+      mirrorMat.specularColor = new Color3(0.5, 0.5, 0.5);
+      mirrorMat.reflectionTexture = new MirrorTexture("mirror", 1024, this.scene, true);
+      mirrorMat.reflectionTexture.mirrorPlane = new Plane(0, -1, 0, -21);
+      if (this.skybox) {
+        mirrorMat.reflectionTexture.renderList = [this.skybox];
+      }
+      mirrorMat.reflectionTexture.level = 0.5;
+      mirrorGround.material = mirrorMat;
+    } catch (e) {
+      console.warn("Mirror texture creation failed", e);
+      mirrorGround.dispose();
+    }
+
+    // 3. Fog Effect
+    // Using standard properties
+    this.scene.fogMode = 2; // EXP2
+    this.scene.fogDensity = 0.002;
+    this.scene.fogColor = Color3.FromHexString("#050510");
+
+    console.log('✅ Digital Grid Environment created');
   }
 
   /**

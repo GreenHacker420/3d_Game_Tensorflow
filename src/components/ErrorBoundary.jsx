@@ -1,4 +1,7 @@
 import React from 'react';
+import { Card, CardTitle } from './ui/Card.jsx';
+import { BackgroundBeams } from './ui/BackgroundBeams.jsx';
+import { ReloadIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -83,193 +86,68 @@ class ErrorBoundary extends React.Component {
       const errorInfo = this.getErrorMessage();
 
       return (
-        <div className="error-boundary">
-          <div className="error-content">
-            <h1>{errorInfo.title}</h1>
-            <p>{errorInfo.description}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950 font-sans text-white">
+          <BackgroundBeams className="absolute top-0 left-0 w-full h-full z-0" />
 
-            <div className="error-suggestions">
-              <h3>💡 Try these solutions:</h3>
-              <ul>
-                {errorInfo.suggestions.map((suggestion, index) => (
-                  <li key={index}>{suggestion}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="error-actions">
-              <button
-                onClick={() => window.location.reload()}
-                className="error-btn primary"
-              >
-                🔄 Reload Game
-              </button>
-
-              <button
-                onClick={() => this.setState({ hasError: false, error: null, errorInfo: null, errorType: 'unknown' })}
-                className="error-btn secondary"
-              >
-                🔧 Try Again
-              </button>
-            </div>
-            
-            {process.env.NODE_ENV === 'development' && (
-              <details className="error-details">
-                <summary>🐛 Error Details (Development Mode)</summary>
-                <div className="error-stack">
-                  <h3>Error:</h3>
-                  <pre>{this.state.error && this.state.error.toString()}</pre>
-                  
-                  <h3>Component Stack:</h3>
-                  <pre>{this.state.errorInfo?.componentStack || 'No component stack available'}</pre>
+          <div className="relative z-10 w-full max-w-lg px-4">
+            <Card className="border-red-500/30 bg-black/80 backdrop-blur-xl">
+              <div className="flex flex-col items-center text-center p-6 space-y-6">
+                <div className="p-4 rounded-full bg-red-500/10 border border-red-500/20 text-red-500">
+                  <ExclamationTriangleIcon className="w-12 h-12" />
                 </div>
-              </details>
-            )}
+
+                <div>
+                  <CardTitle className="text-2xl text-red-400 mb-2 mt-0">{errorInfo.title}</CardTitle>
+                  <p className="text-gray-300">{errorInfo.description}</p>
+                </div>
+
+                {/* Suggestions */}
+                <div className="w-full text-left bg-white/5 rounded-lg p-4 border border-white/10">
+                  <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                    💡 Try these solutions:
+                  </h3>
+                  <ul className="space-y-2">
+                    {errorInfo.suggestions.map((suggestion, index) => (
+                      <li key={index} className="text-sm text-gray-300 flex items-start gap-2">
+                        <span className="mt-1 w-1 h-1 rounded-full bg-gray-500"></span>
+                        {suggestion}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ReloadIcon /> Reload Game
+                  </button>
+                  <button
+                    onClick={() => this.setState({ hasError: false, error: null, errorInfo: null, errorType: 'unknown' })}
+                    className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-lg font-medium transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+
+                {/* Dev Details */}
+                {process.env.NODE_ENV === 'development' && (
+                  <details className="w-full text-left pt-4 border-t border-white/10">
+                    <summary className="cursor-pointer text-xs text-orange-400 font-mono hover:text-orange-300">
+                      View Technical Details
+                    </summary>
+                    <div className="mt-2 text-xs font-mono bg-black/50 p-3 rounded border border-white/5 overflow-auto max-h-40">
+                      {this.state.error && this.state.error.toString()}
+                      <br />
+                      {this.state.errorInfo?.componentStack}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </Card>
           </div>
-          
-          <style>{`
-            .error-boundary {
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-              color: white;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              z-index: 9999;
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            }
-            
-            .error-content {
-              text-align: center;
-              max-width: 600px;
-              padding: 40px;
-              background: rgba(0, 0, 0, 0.8);
-              border-radius: 16px;
-              border: 2px solid #ff4444;
-              backdrop-filter: blur(10px);
-            }
-            
-            .error-content h1 {
-              font-size: 2.5em;
-              margin: 0 0 20px 0;
-              color: #ff4444;
-            }
-            
-            .error-content p {
-              font-size: 1.2em;
-              margin: 0 0 30px 0;
-              opacity: 0.9;
-              line-height: 1.5;
-            }
-            
-            .error-actions {
-              display: flex;
-              gap: 16px;
-              justify-content: center;
-              margin-bottom: 30px;
-            }
-            
-            .error-btn {
-              padding: 12px 24px;
-              border: none;
-              border-radius: 8px;
-              font-size: 1em;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.3s ease;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            
-            .error-btn.primary {
-              background: #4CAF50;
-              color: white;
-            }
-            
-            .error-btn.primary:hover {
-              background: #45a049;
-              transform: translateY(-2px);
-            }
-            
-            .error-btn.secondary {
-              background: rgba(255, 255, 255, 0.1);
-              color: white;
-              border: 1px solid rgba(255, 255, 255, 0.3);
-            }
-            
-            .error-btn.secondary:hover {
-              background: rgba(255, 255, 255, 0.2);
-              transform: translateY(-2px);
-            }
-            
-            .error-details {
-              text-align: left;
-              margin-top: 20px;
-              background: rgba(0, 0, 0, 0.5);
-              border-radius: 8px;
-              padding: 16px;
-            }
-            
-            .error-details summary {
-              cursor: pointer;
-              font-weight: 600;
-              color: #ffaa00;
-              margin-bottom: 12px;
-            }
-            
-            .error-stack {
-              font-size: 0.85em;
-            }
-            
-            .error-stack h3 {
-              color: #ff4444;
-              margin: 16px 0 8px 0;
-              font-size: 1em;
-            }
-            
-            .error-stack pre {
-              background: rgba(0, 0, 0, 0.7);
-              padding: 12px;
-              border-radius: 4px;
-              overflow-x: auto;
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              font-family: 'Courier New', monospace;
-              font-size: 0.8em;
-              line-height: 1.4;
-              border-left: 3px solid #ff4444;
-            }
-            
-            @media (max-width: 768px) {
-              .error-content {
-                margin: 20px;
-                padding: 30px 20px;
-              }
-              
-              .error-content h1 {
-                font-size: 2em;
-              }
-              
-              .error-content p {
-                font-size: 1em;
-              }
-              
-              .error-actions {
-                flex-direction: column;
-                align-items: center;
-              }
-              
-              .error-btn {
-                width: 100%;
-                max-width: 200px;
-              }
-            }
-          `}</style>
         </div>
       );
     }

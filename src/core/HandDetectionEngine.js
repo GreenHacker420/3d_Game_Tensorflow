@@ -121,10 +121,10 @@ export class HandDetectionEngine {
     } catch (error) {
       this.isLoading = false;
       this.isInitialized = false;
-      
+
       const errorMessage = `Failed to load hand detection model: ${error.message}`;
       console.error('❌', errorMessage);
-      
+
       this.notifyError(errorMessage);
       throw error;
     }
@@ -409,10 +409,10 @@ export class HandDetectionEngine {
     // Calculate distance between thumb tip and pinky tip
     const thumbTip = landmarks[4];
     const pinkyTip = landmarks[20];
-    
+
     const dx = thumbTip[0] - pinkyTip[0];
     const dy = thumbTip[1] - pinkyTip[1];
-    
+
     return Math.sqrt(dx * dx + dy * dy);
   }
 
@@ -428,15 +428,15 @@ export class HandDetectionEngine {
 
     const thumbTip = landmarks[4];
     const indexTip = landmarks[8];
-    
+
     const dx = thumbTip[0] - indexTip[0];
     const dy = thumbTip[1] - indexTip[1];
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
     const pinchThreshold = 30;
     const isPinched = distance < pinchThreshold;
     const confidence = Math.max(0, 1 - (distance / 100));
-    
+
     return { isPinched, distance, confidence };
   }
 
@@ -476,136 +476,11 @@ export class HandDetectionEngine {
     }
   }
 
-  /**
-   * Analyze lighting conditions from video element
-   * @param {HTMLVideoElement} videoElement - Video element to analyze
-   * @returns {Object} Lighting analysis result
-   */
-  analyzeLightingConditions(videoElement) {
-    try {
-      // Create a temporary canvas to analyze the video frame
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = 100; // Small sample size for performance
-      canvas.height = 75;
 
-      // Draw current video frame to canvas
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-      // Get image data
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
 
-      // Calculate average brightness
-      let totalBrightness = 0;
-      let pixelCount = 0;
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
 
-        // Calculate luminance using standard formula
-        const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-        totalBrightness += brightness;
-        pixelCount++;
-      }
-
-      const avgBrightness = totalBrightness / pixelCount;
-
-      // Categorize lighting condition
-      let condition = 'normal';
-      if (avgBrightness < 80) {
-        condition = 'low';
-      } else if (avgBrightness > 180) {
-        condition = 'high';
-      }
-
-      return {
-        brightness: avgBrightness,
-        condition: condition,
-        quality: Math.min(1, avgBrightness / 128) // Normalized quality score
-      };
-    } catch (error) {
-      console.warn('Failed to analyze lighting conditions:', error);
-      return {
-        brightness: 128,
-        condition: 'normal',
-        quality: 1
-      };
-    }
-  }
-
-  /**
-   * Adapt detection parameters based on lighting conditions
-   * @param {Object} lightingCondition - Lighting analysis result
-   */
-  adaptDetectionParameters(lightingCondition) {
-    if (!this.adaptiveParams) return;
-
-    const { condition, quality } = lightingCondition;
-
-    // Adjust confidence thresholds based on lighting
-    switch (condition) {
-      case 'low':
-        this.adaptiveParams.lightingBoost = -0.1; // Lower threshold for low light
-        break;
-      case 'high':
-        this.adaptiveParams.lightingBoost = 0.05; // Slightly higher threshold for bright light
-        break;
-      default:
-        this.adaptiveParams.lightingBoost = 0.0;
-    }
-
-    // Update stability filter based on lighting quality
-    this.adaptiveParams.stabilityFilter = Math.max(0.5, quality * 0.8);
-  }
-
-  /**
-   * Apply stability filtering to predictions
-   * @param {Array} predictions - Raw predictions from model
-   * @returns {Array} Filtered predictions
-   */
-  applyStabilityFilter(predictions) {
-    if (!this.adaptiveParams || !this.adaptiveParams.frameHistory) {
-      return predictions;
-    }
-
-    // Add current predictions to history
-    this.adaptiveParams.frameHistory.push(predictions);
-
-    // Keep only recent history
-    if (this.adaptiveParams.frameHistory.length > this.adaptiveParams.maxHistorySize) {
-      this.adaptiveParams.frameHistory.shift();
-    }
-
-    // If we don't have enough history, return current predictions
-    if (this.adaptiveParams.frameHistory.length < 3) {
-      return predictions;
-    }
-
-    // Apply temporal smoothing
-    if (predictions.length === 0) {
-      // No current detection - check if we had consistent detections recently
-      const recentDetections = this.adaptiveParams.frameHistory.slice(-3);
-      const hasConsistentDetections = recentDetections.every(p => p.length > 0);
-
-      if (hasConsistentDetections) {
-        // Return the most recent detection to maintain continuity
-        return this.adaptiveParams.frameHistory[this.adaptiveParams.frameHistory.length - 2] || [];
-      }
-    } else {
-      // We have a detection - apply confidence filtering
-      const filteredPredictions = predictions.filter(prediction => {
-        const adjustedThreshold = this.adaptiveParams.baseConfidence + this.adaptiveParams.lightingBoost;
-        return prediction.handInViewConfidence >= adjustedThreshold;
-      });
-
-      return filteredPredictions;
-    }
-
-    return predictions;
-  }
 
   /**
    * Check if current frame should be skipped for performance optimization
@@ -961,6 +836,37 @@ export class HandDetectionEngine {
     } else {
       // Good contrast
       this.adaptiveParams.baseConfidence = 0.7;
+    }
+  }
+
+  /**
+   * Update adaptive parameters based on detection results and performance
+   * @param {Array} predictions - Detection results
+   * @param {number} processingTime - Processing time in ms
+   */
+  updateAdaptiveParameters(predictions, processingTime) {
+    // Update performance metrics
+    this.performanceOptimization.lastProcessTime = performance.now();
+
+    // Adjust adaptive frame rate based on processing time
+    const targetProcessingTime = 1000 / this.performanceOptimization.targetFrameRate;
+
+    if (processingTime > targetProcessingTime * 1.5) {
+      // Processing is too slow, reduce frame rate
+      this.performanceOptimization.adaptiveFrameRate = Math.max(15, this.performanceOptimization.adaptiveFrameRate - 2);
+    } else if (processingTime < targetProcessingTime * 0.7) {
+      // Processing is fast enough, can increase frame rate
+      this.performanceOptimization.adaptiveFrameRate = Math.min(60, this.performanceOptimization.adaptiveFrameRate + 1);
+    }
+
+    // Adjust confidence threshold if we are not detecting anything
+    if (predictions.length === 0) {
+      // If we haven't seen hands for a while, maybe lower the threshold a bit (but not too much)
+      // This is a simple heuristic
+      if (this.adaptiveParams && this.adaptiveParams.baseConfidence > 0.6) {
+        // this.adaptiveParams.baseConfidence -= 0.001; // Very slow decay? 
+        // For now, let's just stick to performance updates to be safe
+      }
     }
   }
 

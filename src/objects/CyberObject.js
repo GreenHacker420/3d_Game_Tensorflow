@@ -6,23 +6,24 @@ import {
   Animation
 } from "@babylonjs/core";
 import { GESTURE_TYPES } from '../core/GestureClassifier.js';
+import { CyberMaterial } from '../3d/materials/CyberMaterial.js';
 
 /**
- * Interactive 3D cube that responds to hand gestures
+ * CyberObject: Interactive 3D object for Cyberpunk theme
  */
-export class InteractiveCube {
-  constructor(scene, name = "InteractiveCube") {
+export class CyberObject {
+  constructor(scene, name = "CyberObject") {
     this.scene = scene;
     this.name = name;
     this.mesh = null;
     this.material = null;
     this.isInitialized = false;
-    
+
     // Interaction state
     this.isSelected = false;
     this.isGrabbed = false;
     this.lastHandPosition = null;
-    
+
     // Movement properties
     this.smoothingFactor = 0.15;
     this.boundarySize = { width: 80, height: 60, depth: 40 };
@@ -50,22 +51,98 @@ export class InteractiveCube {
 
     // Animation properties
     this.animations = new Map();
+
+    // supported gestures
+    this.supportedGestures = [];
   }
 
   /**
-   * Initialize the interactive cube
+   * Get supported gestures based on type
+   */
+  getSupportedGestures() {
+    // Each object type supports different gestures
+    const gestureMap = {
+      'cube': [
+        GESTURE_TYPES.OPEN_HAND,
+        GESTURE_TYPES.CLOSED_FIST,
+        GESTURE_TYPES.PINCH,
+        GESTURE_TYPES.POINT,
+        GESTURE_TYPES.OK_SIGN
+      ],
+      'sphere': [
+        GESTURE_TYPES.CLOSED_FIST,
+        GESTURE_TYPES.POINT,
+        GESTURE_TYPES.VICTORY,
+        GESTURE_TYPES.THUMBS_UP,
+        GESTURE_TYPES.ROCK_ON
+      ],
+      'pyramid': [
+        GESTURE_TYPES.THUMBS_UP,
+        GESTURE_TYPES.ROCK_ON,
+        GESTURE_TYPES.OK_SIGN,
+        GESTURE_TYPES.VICTORY,
+        GESTURE_TYPES.PINCH
+      ],
+      'cylinder': [
+        GESTURE_TYPES.PINCH,
+        GESTURE_TYPES.OPEN_HAND,
+        GESTURE_TYPES.VICTORY,
+        GESTURE_TYPES.POINT,
+        GESTURE_TYPES.CLOSED_FIST
+      ]
+    };
+
+    return gestureMap[this.type] || [
+      GESTURE_TYPES.OPEN_HAND,
+      GESTURE_TYPES.CLOSED_FIST,
+      GESTURE_TYPES.PINCH
+    ];
+  }
+
+  /**
+   * Check if object can handle gesture
+   * @param {string} gesture - Gesture to check
+   * @returns {boolean} True if supported
+   */
+  canHandleGesture(gesture) {
+    return this.supportedGestures.includes(gesture);
+  }
+
+  /**
+   * Initialize the cyber object
    * @param {Vector3} position - Initial position
    * @param {number} size - Initial size
+   * @param {string} type - Object type (cube, sphere, cylinder, pyramid)
+   * @param {Color3} color - Object color
    * @returns {Mesh} Created mesh
    */
-  initialize(position = Vector3.Zero(), size = 5) {
+  initialize(position = Vector3.Zero(), size = 5, type = 'cube', color = Color3.FromHexString("#FF7F50")) {
     if (this.isInitialized) {
       return this.mesh;
     }
 
     try {
-      // Create cube mesh
-      this.mesh = MeshBuilder.CreateBox(this.name, { size }, this.scene);
+      this.type = type;
+      this.baseColor = color;
+      this.supportedGestures = this.getSupportedGestures();
+
+      // Create mesh based on type
+      switch (type) {
+        case 'sphere':
+          this.mesh = MeshBuilder.CreateSphere(this.name, { diameter: size }, this.scene);
+          break;
+        case 'cylinder':
+          this.mesh = MeshBuilder.CreateCylinder(this.name, { diameter: size, height: size * 1.5 }, this.scene);
+          break;
+        case 'pyramid':
+          this.mesh = MeshBuilder.CreateCylinder(this.name, { diameterTop: 0, diameterBottom: size, height: size, tessellation: 4 }, this.scene);
+          break;
+        case 'cube':
+        default:
+          this.mesh = MeshBuilder.CreateBox(this.name, { size }, this.scene);
+          break;
+      }
+
       this.mesh.position = position.clone();
 
       // Create material
@@ -75,29 +152,55 @@ export class InteractiveCube {
       this.setupAnimations();
 
       this.isInitialized = true;
-      console.log(`✅ Interactive cube '${this.name}' initialized`);
+      console.log(`✅ CyberObject '${this.name}' (${this.type}) initialized`);
 
       return this.mesh;
 
     } catch (error) {
-      console.error(`❌ Failed to initialize cube '${this.name}':`, error);
+      console.error(`❌ Failed to initialize object '${this.name}':`, error);
       throw error;
     }
   }
 
   /**
-   * Create cube material with interactive colors
+   * Create material with interactive colors
    */
   createMaterial() {
-    this.material = new StandardMaterial(`${this.name}_Material`, this.scene);
-    
-    // Default appearance
-    this.material.diffuseColor = Color3.FromHexString("#FF7F50"); // Coral
-    this.material.specularColor = new Color3(0.3, 0.3, 0.3);
-    this.material.roughness = 0.4;
-    
-    // Apply material
+    // Initial Cyber Material
+    this.material = CyberMaterial.CreateNeon(
+      `${this.name}_Material`,
+      this.scene,
+      this.baseColor || Color3.FromHexString("#FF7F50"),
+      1.0
+    );
     this.mesh.material = this.material;
+  }
+
+  setNormalAppearance() {
+    if (this.material) {
+      this.material.emissiveColor = this.baseColor || Color3.FromHexString("#FF7F50");
+      this.material.emissiveIntensity = 1.0;
+    }
+  }
+
+  /**
+   * Set grabbed appearance
+   */
+  setGrabbedAppearance() {
+    if (this.material) {
+      this.material.emissiveColor = Color3.FromHexString("#FF0000"); // Intense Red
+      this.material.emissiveIntensity = 2.0;
+    }
+  }
+
+  /**
+   * Set pinch appearance
+   */
+  setPinchAppearance() {
+    if (this.material) {
+      this.material.emissiveColor = Color3.FromHexString("#FFFF00"); // Bright Yellow
+      this.material.emissiveIntensity = 1.5;
+    }
   }
 
   /**
@@ -115,7 +218,7 @@ export class InteractiveCube {
       this.mesh.position.y + 2,
       Animation.ANIMATIONLOOPMODE_YOYO
     );
-    
+
     this.animations.set('hover', hoverAnimation);
     hoverAnimation.pause(); // Start paused
   }
@@ -127,13 +230,26 @@ export class InteractiveCube {
    * @param {boolean} use3DMode - Whether to use 3D motion mode
    * @returns {boolean} True if gesture was handled
    */
+  /**
+   * Update object state (called every frame)
+   */
+  update() {
+    if (!this.isInitialized) return;
+
+    // Update physics simulation
+    this.updatePhysics();
+  }
+
   handleGesture(gesture, handState, use3DMode = false) {
     if (!this.isInitialized || !handState.isTracking) {
       return false;
     }
 
-    // Update physics simulation
-    this.updatePhysics();
+    if (!this.canHandleGesture(gesture)) {
+      return false;
+    }
+
+    // Physics updated in update() loop now
 
     // Update rotation with hand orientation (only if not using 3D mode's built-in rotation)
     if (!use3DMode) {
@@ -149,6 +265,21 @@ export class InteractiveCube {
 
       case GESTURE_TYPES.PINCH:
         return this.handlePinch(handState, use3DMode);
+
+      case GESTURE_TYPES.VICTORY:
+        return this.handleVictory(handState, use3DMode);
+
+      case GESTURE_TYPES.THUMBS_UP:
+        return this.handleThumbsUp(handState, use3DMode);
+
+      case GESTURE_TYPES.ROCK_ON:
+        return this.handleRockOn(handState, use3DMode);
+
+      case GESTURE_TYPES.POINT:
+        return this.handlePoint(handState, use3DMode);
+
+      case GESTURE_TYPES.OK_SIGN:
+        return this.handleOKSign(handState, use3DMode);
 
       default:
         return this.handleDefault(handState);
@@ -176,8 +307,36 @@ export class InteractiveCube {
   handleClosedFist(handState, use3DMode = false) {
     this.setGrabbedAppearance();
     this.isGrabbed = true;
+
+    // Calculate hand world position for beam
+    const handWorldPos = this.mapHandToWorldPosition(handState, use3DMode);
+    this.updateBeam(handWorldPos);
+
     this.moveToHandPosition(handState, 0.25, use3DMode); // Faster movement when grabbed
     return true;
+  }
+
+  updateBeam(handPos) {
+    if (!this.mesh || !this.isGrabbed) {
+      if (this.beamMesh) {
+        this.beamMesh.dispose();
+        this.beamMesh = null;
+      }
+      return;
+    }
+
+    const points = [
+      handPos,
+      this.mesh.position
+    ];
+
+    if (!this.beamMesh) {
+      this.beamMesh = MeshBuilder.CreateLines("beam", { points }, this.scene);
+      this.beamMesh.color = this.baseColor || Color3.FromHexString("#FF7F50");
+      this.beamMesh.alpha = 0.6;
+    } else {
+      this.beamMesh = MeshBuilder.CreateLines("beam", { points, instance: this.beamMesh });
+    }
   }
 
   /**
@@ -196,6 +355,42 @@ export class InteractiveCube {
     return true;
   }
 
+  handleVictory(handState, use3DMode) {
+    // Spin effect
+    this.mesh.rotation.y += 0.1;
+    this.createCollisionEffect();
+    return true;
+  }
+
+  handleThumbsUp(handState, use3DMode) {
+    // Jump effect
+    this.addMomentum(new Vector3(0, 0.5, 0));
+    return true;
+  }
+
+  handleRockOn(handState, use3DMode) {
+    // Random color
+    this.material.emissiveColor = new Color3(Math.random(), Math.random(), Math.random());
+    return true;
+  }
+
+  handlePoint(handState, use3DMode) {
+    // Highlight / Select
+    this.isSelected = !this.isSelected;
+    if (this.isSelected) {
+      this.material.emissiveColor = Color3.White();
+    } else {
+      this.setNormalAppearance();
+    }
+    return true;
+  }
+
+  handleOKSign(handState, use3DMode) {
+    // Reset
+    this.reset();
+    return true;
+  }
+
   /**
    * Handle default state
    * @param {Object} handState - Hand state data
@@ -204,6 +399,7 @@ export class InteractiveCube {
   handleDefault(handState) {
     this.setNormalAppearance();
     this.isGrabbed = false;
+    this.updateBeam(null); // Remove beam
     return false;
   }
 
@@ -243,101 +439,81 @@ export class InteractiveCube {
 
     const spreadDelta = handState.fingerSpread - this.lastHandPosition.fingerSpread;
     const scaleDelta = spreadDelta * this.scaleSpeed;
-    
+
     const currentScale = this.mesh.scaling.x;
     const newScale = Math.max(
       this.minScale,
       Math.min(this.maxScale, currentScale + scaleDelta)
     );
-    
+
     this.mesh.scaling = new Vector3(newScale, newScale, newScale);
     this.lastHandPosition.fingerSpread = handState.fingerSpread;
   }
 
   /**
-   * Map hand position to world coordinates with adaptive mapping
+   * Map hand position to world coordinates using CoordinateMapper
    * @param {Object} handState - Hand state data
    * @param {boolean} use3DMode - Whether to use 3D motion mode mapping
    * @returns {Vector3} World position
    */
   mapHandToWorldPosition(handState, use3DMode = false) {
+    // 1. 3D Mode Direct Mapping (if available)
     if (use3DMode && handState.position.z !== undefined) {
-      // Use direct 3D coordinates from 3D Motion Mode Manager
       return new Vector3(
         handState.position.x,
         handState.position.y,
         handState.position.z
       );
-    } else {
-      // Try to get adaptive mapper from scene
-      const adaptiveMapper = this.scene.getAdaptiveMapper?.();
-
-      if (adaptiveMapper && adaptiveMapper.isMapperInitialized) {
-        try {
-          // Use adaptive mapping system
-          const mappingResult = adaptiveMapper.mapCoordinates(
-            handState.position,
-            handState.confidence || 1.0
-          );
-
-          if (mappingResult.isValid) {
-            return new Vector3(
-              mappingResult.position.x,
-              mappingResult.position.y,
-              mappingResult.position.z
-            );
-          }
-        } catch (error) {
-          console.warn('⚠️ Adaptive mapping failed in InteractiveCube, falling back to legacy:', error);
-        }
-      }
-
-      // Fallback to enhanced legacy mapping
-      return this.mapHandToWorldPositionLegacy(handState);
     }
+
+    // 2. Coordinate Mapper (Robust Unprojection)
+    const coordinateMapper = this.scene.getCoordinateMapper ? this.scene.getCoordinateMapper() : null;
+
+    if (coordinateMapper) {
+      try {
+        // Calculate target depth from finger spread (Push/Pull)
+        // Spread 0-200 -> Depth 5-30 units from camera
+        const normalizedSpread = Math.min(1, Math.max(0, handState.fingerSpread / 150));
+        // Invert: Open palm (high spread) = Far, Fist (low spread) = Close? 
+        // Or typical telekinesis: Pinch/Grab controls Z?
+        // Let's stick to the existing feel: Spread maps to Z depth.
+
+        const minDepth = 10;
+        const maxDepth = 40;
+        const targetDepth = minDepth + normalizedSpread * (maxDepth - minDepth);
+
+        return coordinateMapper.map(handState.position, targetDepth);
+
+      } catch (error) {
+        console.warn('Coordinate mapping failed:', error);
+      }
+    }
+
+    // 3. Fallback to Legacy Mapping
+    return this.mapHandToWorldPositionLegacy(handState);
   }
 
   /**
-   * Enhanced legacy mapping with dynamic resolution detection
+   * Legacy mapping fallback
    * @param {Object} handState - Hand state data
    * @returns {Vector3} World position
    */
   mapHandToWorldPositionLegacy(handState) {
-    // Try to detect actual video resolution from scene
-    let videoWidth = 640;
-    let videoHeight = 480;
+    const videoWidth = 640;
+    const videoHeight = 480;
 
-    // Check if scene has video element reference
-    if (this.scene.videoElement) {
-      videoWidth = this.scene.videoElement.videoWidth || this.scene.videoElement.width || 640;
-      videoHeight = this.scene.videoElement.videoHeight || this.scene.videoElement.height || 480;
-    }
+    // Normalize coordinates -1 to 1
+    const nx = (handState.position.x / videoWidth) * 2 - 1;
+    const ny = -((handState.position.y / videoHeight) * 2 - 1);
 
-    // Enhanced mapping with aspect ratio correction
-    const sceneWidth = this.boundarySize.width;
-    const sceneHeight = this.boundarySize.height;
+    // Scale to scene bounds
+    const x = nx * (this.boundarySize.width / 2);
+    const y = ny * (this.boundarySize.height / 2);
 
-    // Calculate aspect ratio correction
-    const videoAspect = videoWidth / videoHeight;
-    const sceneAspect = sceneWidth / sceneHeight;
-    const aspectCorrection = videoAspect / sceneAspect;
+    // Z from spread
+    const z = (handState.fingerSpread / 200) * this.boundarySize.depth - (this.boundarySize.depth / 2);
 
-    // Apply aspect ratio correction to X coordinate
-    const correctedX = handState.position.x * aspectCorrection;
-
-    const mappedX = ((correctedX / videoWidth) * sceneWidth) - (sceneWidth / 2);
-    const mappedY = ((1 - handState.position.y / videoHeight) * sceneHeight) - (sceneHeight / 2);
-
-    // Enhanced Z mapping based on finger spread and hand orientation
-    let mappedZ = (handState.fingerSpread / 200) * this.boundarySize.depth - (this.boundarySize.depth / 2);
-
-    // Add hand orientation influence if available
-    if (handState.handOrientation && handState.handOrientation.pitch) {
-      const pitchInfluence = Math.sin(handState.handOrientation.pitch) * 10;
-      mappedZ += pitchInfluence;
-    }
-
-    return new Vector3(mappedX, mappedY, mappedZ);
+    return new Vector3(x, y, z);
   }
 
   /**
@@ -386,35 +562,7 @@ export class InteractiveCube {
     this.mesh.rotation.z = this.lastHandOrientation.z;
   }
 
-  /**
-   * Set normal appearance
-   */
-  setNormalAppearance() {
-    if (this.material) {
-      this.material.diffuseColor = Color3.FromHexString("#FF7F50"); // Coral
-      this.material.emissiveColor = new Color3(0, 0, 0);
-    }
-  }
 
-  /**
-   * Set grabbed appearance
-   */
-  setGrabbedAppearance() {
-    if (this.material) {
-      this.material.diffuseColor = Color3.FromHexString("#FF4500"); // Orange Red
-      this.material.emissiveColor = new Color3(0.1, 0.05, 0);
-    }
-  }
-
-  /**
-   * Set pinch appearance
-   */
-  setPinchAppearance() {
-    if (this.material) {
-      this.material.diffuseColor = Color3.FromHexString("#FFD700"); // Gold
-      this.material.emissiveColor = new Color3(0.1, 0.1, 0);
-    }
-  }
 
   /**
    * Get cube information for UI
@@ -447,7 +595,7 @@ export class InteractiveCube {
       this.mesh.scaling = new Vector3(this.initialScale, this.initialScale, this.initialScale);
       this.mesh.rotation = Vector3.Zero();
     }
-    
+
     this.isSelected = false;
     this.isGrabbed = false;
     this.lastHandPosition = null;
@@ -665,9 +813,14 @@ export class InteractiveCube {
       this.mesh = null;
     }
 
+    if (this.beamMesh) {
+      this.beamMesh.dispose();
+      this.beamMesh = null;
+    }
+
     this.isInitialized = false;
     console.log(`🗑️ Interactive cube '${this.name}' disposed`);
   }
 }
 
-export default InteractiveCube;
+export default CyberObject;

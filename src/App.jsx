@@ -16,6 +16,8 @@ import ObjectsHUD from './components/ObjectsHUD.jsx';
 import ObjectivesHUD from './components/ObjectivesHUD.jsx';
 import RewardsHUD, { RewardNotification } from './components/RewardsHUD.jsx';
 import GameController from './components/GameController.jsx';
+import { Card, CardTitle } from './components/ui/Card.jsx';
+import { HoverBorderGradient } from './components/ui/HoverBorderGradient.jsx';
 import useHandDetection from './hooks/useHandDetection.js';
 import use3DScene from './hooks/use3DScene.js';
 import useLenis from './hooks/useLenis.js';
@@ -24,12 +26,19 @@ import { TRACKING_MODES } from './core/3DMotionModeManager.js';
 import { ConfigProvider } from 'antd';
 import antdTheme from './config/antdTheme.js';
 import './App.css';
+import {
+  HandIcon,
+  BoxModelIcon,
+  Crosshair2Icon,
+  InfoCircledIcon,
+  TargetIcon
+} from '@radix-ui/react-icons';
 
 /**
  * Minimalistic 3D Hand Pose Game
  * Focus: Hand detection + Single interactive cube
  */
-function App() {
+export default function App() {
   const sceneCanvasRef = useRef(null);
 
   // 3D Motion Mode state
@@ -418,363 +427,357 @@ function App() {
     <ConfigProvider theme={antdTheme}>
       <ErrorBoundary>
         <motion.div
-        className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 text-white overflow-hidden"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-        data-lenis-prevent // Prevent Lenis on main container to avoid conflicts with hand tracking
-      >
-        {/* Main Content */}
-        <div className="flex h-screen gap-4 p-4">
-          {/* Hand Tracking Panel */}
-          <motion.div
-            className="hand-tracker-container w-80 h-60 flex-shrink-0"
-            initial={{ x: -100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <HandTracker
-              onHandDetection={handleHandDetection}
-              handState={handState}
-              isLoading={handLoading}
-              error={handError}
-              width={320}
-              height={240}
-              showHandOverlay={true}
-            />
-          </motion.div>
-
-          {/* 3D Scene Panel */}
-          <motion.div
-            className="scene-container flex-1 relative"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Scene3D
-              onSceneReady={handleSceneReady}
-              className="w-full h-full"
-            />
-
-            {/* Loading overlay for 3D scene */}
-            <AnimatePresence>
-              {sceneLoading && (
-                <motion.div
-                  className="overlay"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="overlay-content">
-                    <div className="spinner w-8 h-8 mx-auto mb-4"></div>
-                    <p className="text-accent-400 font-medium">Initializing 3D Scene...</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Error overlay for 3D scene */}
-            <AnimatePresence>
-              {sceneError && (
-                <motion.div
-                  className="overlay glow-error"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="overlay-content">
-                    <p className="text-red-400 font-medium">⚠️ {sceneError}</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        {/* Status Indicator */}
-        <motion.div
-          className="absolute top-4 left-4 z-10"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
+          className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 text-white overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
+          data-lenis-prevent // Prevent Lenis on main container to avoid conflicts with hand tracking
         >
-          <StatusIndicator
-            handDetectionStatus={getHandDetectionStatus()}
-            sceneStatus={getSceneStatus()}
-          />
-        </motion.div>
+          {/* Main Content */}
+          <div className="flex h-screen gap-4 p-4">
+            {/* Hand Tracking Panel */}
+            <motion.div
+              className="hand-tracker-container w-80 h-60 flex-shrink-0"
+              initial={{ x: -100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <HandTracker
+                onHandDetection={handleHandDetection}
+                handState={handState}
+                isLoading={handLoading}
+                error={handError}
+                width={320}
+                height={240}
+                showHandOverlay={true}
+              />
+            </motion.div>
 
-        {/* Performance HUD */}
-        <motion.div
-          className="absolute top-4 right-4 z-10"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
-        >
-          <PerformanceHUD
-            handState={handState}
-            performance={performance}
-            cubeInfo={cubeInfo}
-            position="top-right"
-          />
-        </motion.div>
+            {/* 3D Scene Panel */}
+            <motion.div
+              className="scene-container flex-1 relative"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <Scene3D
+                onSceneReady={handleSceneReady}
+                className="w-full h-full"
+              />
 
-        {/* Objects HUD */}
-        {showObjectsHUD && objectsInfo && objectsInfo.length > 0 && (
+              {/* Loading overlay for 3D scene */}
+              <AnimatePresence>
+                {sceneLoading && (
+                  <motion.div
+                    className="overlay"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="overlay-content">
+                      <div className="spinner w-8 h-8 mx-auto mb-4"></div>
+                      <p className="text-accent-400 font-medium">Initializing 3D Scene...</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Error overlay for 3D scene */}
+              <AnimatePresence>
+                {sceneError && (
+                  <motion.div
+                    className="overlay glow-error"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="overlay-content">
+                      <p className="text-red-400 font-medium">⚠️ {sceneError}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+
+          {/* Status Indicator */}
           <motion.div
-            className="absolute bottom-4 right-4 z-10"
-            initial={{ y: 50, opacity: 0 }}
+            className="absolute top-4 left-4 z-10"
+            initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            <StatusIndicator
+              handDetectionStatus={getHandDetectionStatus()}
+              sceneStatus={getSceneStatus()}
+            />
+          </motion.div>
+
+          {/* Performance HUD */}
+          <motion.div
+            className="absolute top-4 right-4 z-10"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+          >
+            <PerformanceHUD
+              handState={handState}
+              performance={performance}
+              cubeInfo={cubeInfo}
+              position="top-right"
+            />
+          </motion.div>
+
+          {/* Objects HUD */}
+          {showObjectsHUD && objectsInfo && objectsInfo.length > 0 && (
+            <motion.div
+              className="absolute bottom-4 right-4 z-10"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 1.0 }}
+            >
+              <ObjectsHUD
+                objectsInfo={objectsInfo}
+                selectedObject={selectedObject}
+                onSelectObject={handleObjectSelection}
+                gestureCompatibility={getCurrentGestureCompatibility()}
+                position="bottom-right"
+                minimized={objectsHUDMinimized}
+                onToggleMinimize={() => setObjectsHUDMinimized(!objectsHUDMinimized)}
+              />
+            </motion.div>
+          )}
+
+          {/* Objectives HUD */}
+          {showObjectivesHUD && objectivesActive && objectives && objectives.length > 0 && (
+            <motion.div
+              className="absolute bottom-4 left-4 z-10"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
+            >
+              <ObjectivesHUD
+                objectives={objectives}
+                progress={objectivesProgress}
+                completionRate={objectives.length > 0 ? (objectives.filter(obj => obj.completed).length / objectives.length) * 100 : 0}
+                isActive={objectivesActive}
+                position="bottom-left"
+                minimized={objectivesHUDMinimized}
+                onToggleMinimize={() => setObjectivesHUDMinimized(!objectivesHUDMinimized)}
+              />
+            </motion.div>
+          )}
+
+          {/* Rewards HUD */}
+          {(activeRewards.length > 0 || comboStreak > 0 || recentRewards.length > 0) && (
+            <motion.div
+              className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20"
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+            >
+              <RewardsHUD
+                activeRewards={activeRewards}
+                comboStreak={comboStreak}
+                maxComboStreak={maxComboStreak}
+                streakMultiplier={streakMultiplier}
+                totalPoints={totalRewardPoints}
+                recentRewards={recentRewards}
+                position="top-center"
+              />
+            </motion.div>
+          )}
+
+          {/* Reward Notification */}
+          {currentRewardNotification && (
+            <RewardNotification
+              reward={currentRewardNotification}
+              onComplete={() => {
+                // Notification will auto-clear from store
+              }}
+            />
+          )}
+
+          {/* 3D Motion Toggle */}
+          <motion.div
+            className="absolute top-20 left-4 z-10"
+            initial={{ x: -50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.0 }}
           >
-            <ObjectsHUD
-              objectsInfo={objectsInfo}
-              selectedObject={selectedObject}
-              onSelectObject={handleObjectSelection}
-              gestureCompatibility={getCurrentGestureCompatibility()}
-              position="bottom-right"
-              minimized={objectsHUDMinimized}
-              onToggleMinimize={() => setObjectsHUDMinimized(!objectsHUDMinimized)}
-            />
-          </motion.div>
-        )}
+            <div className="space-y-4">
+              <ThreeDMotionToggle
+                currentMode={currentTrackingMode}
+                onModeSwitch={handleModeSwitch}
+                onCalibrationStart={handleCalibrationStart}
+                modeStatus={get3DModeStatus()}
+              />
 
-        {/* Objectives HUD */}
-        {showObjectivesHUD && objectivesActive && objectives && objectives.length > 0 && (
+              {/* Interactive Calibration Button */}
+              <HoverBorderGradient
+                as="button"
+                onClick={handleInteractiveCalibration}
+                disabled={!handState.isTracking}
+                className={`w-full flex items-center justify-center gap-2 ${!handState.isTracking ? 'opacity-50 cursor-not-allowed' : ''}`}
+                containerClassName="w-full"
+              >
+                <TargetIcon className="w-4 h-4" /> Interactive Calibration
+              </HoverBorderGradient>
+            </div>
+          </motion.div>
+
+          {/* 3D Tracking HUD */}
+          {show3DTrackingHUD && (
+            <motion.div
+              className="absolute top-20 right-4 z-10"
+              initial={{ x: 50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
+            >
+              <ThreeDTrackingHUD
+                handState={handState}
+                modeStatus={get3DModeStatus()}
+                isMinimized={trackingHUDMinimized}
+                onToggleMinimize={() => setTrackingHUDMinimized(!trackingHUDMinimized)}
+              />
+            </motion.div>
+          )}
+
+          {/* Instructions Panel */}
           <motion.div
             className="absolute bottom-4 left-4 z-10"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1.2 }}
+            transition={{ duration: 0.5, delay: 1.0 }}
           >
-            <ObjectivesHUD
-              objectives={objectives}
-              progress={objectivesProgress}
-              completionRate={objectives.length > 0 ? (objectives.filter(obj => obj.completed).length / objectives.length) * 100 : 0}
-              isActive={objectivesActive}
-              position="bottom-left"
-              minimized={objectivesHUDMinimized}
-              onToggleMinimize={() => setObjectivesHUDMinimized(!objectivesHUDMinimized)}
-            />
+            <Card className="w-80 p-5 bg-black/60 border-white/10 backdrop-blur-xl">
+              <div className="space-y-4">
+                <CardTitle className="text-sm text-accent-400 mt-0 mb-2 flex items-center gap-2">
+                  <InfoCircledIcon /> Hand Tracking Guide
+                </CardTitle>
+
+                {/* Hand Positioning Instructions */}
+                <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="text-xs text-blue-300 font-medium mb-1">Hand Position</div>
+                  <div className="text-xs text-gray-300 leading-relaxed">Keep hand centered in camera view for best tracking</div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Gestures</h4>
+                  <div className="space-y-2">
+                    <motion.div
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <span className="p-1.5 bg-gray-800 rounded-md"><HandIcon className="w-4 h-4 text-blue-400" /></span>
+                      <span className="text-xs text-gray-200">Open Hand - Move Cube</span>
+                    </motion.div>
+                    <motion.div
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <span className="p-1.5 bg-gray-800 rounded-md"><BoxModelIcon className="w-4 h-4 text-purple-400" /></span>
+                      <span className="text-xs text-gray-200">Fist - Grab Cube</span>
+                    </motion.div>
+                    <motion.div
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <span className="p-1.5 bg-gray-800 rounded-md"><Crosshair2Icon className="w-4 h-4 text-green-400" /></span>
+                      <span className="text-xs text-gray-200">Pinch - Scale Cube</span>
+                    </motion.div>
+
+                    {/* 3D Mode Instruction */}
+                    {currentTrackingMode === TRACKING_MODES.MODE_3D && (
+                      <motion.div
+                        className="flex items-center gap-3 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <span className="p-1.5 bg-blue-900/50 rounded-md"><TargetIcon className="w-4 h-4 text-blue-300" /></span>
+                        <span className="text-xs text-blue-100">3D Motion Active</span>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
           </motion.div>
-        )}
 
-        {/* Rewards HUD */}
-        {(activeRewards.length > 0 || comboStreak > 0 || recentRewards.length > 0) && (
-          <motion.div
-            className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20"
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-          >
-            <RewardsHUD
-              activeRewards={activeRewards}
-              comboStreak={comboStreak}
-              maxComboStreak={maxComboStreak}
-              streakMultiplier={streakMultiplier}
-              totalPoints={totalRewardPoints}
-              recentRewards={recentRewards}
-              position="top-center"
-            />
-          </motion.div>
-        )}
-
-        {/* Reward Notification */}
-        {currentRewardNotification && (
-          <RewardNotification
-            reward={currentRewardNotification}
-            onComplete={() => {
-              // Notification will auto-clear from store
-            }}
-          />
-        )}
-
-        {/* 3D Motion Toggle */}
-        <motion.div
-          className="absolute top-20 left-4 z-10"
-          initial={{ x: -50, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 1.0 }}
-        >
-          <div className="space-y-2">
-            <ThreeDMotionToggle
-              currentMode={currentTrackingMode}
-              onModeSwitch={handleModeSwitch}
-              onCalibrationStart={handleCalibrationStart}
-              modeStatus={get3DModeStatus()}
-            />
-
-            {/* Interactive Calibration Button */}
-            <motion.button
-              onClick={handleInteractiveCalibration}
-              disabled={!handState.isTracking}
-              className={`w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                handState.isTracking
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-              whileHover={handState.isTracking ? { scale: 1.02 } : {}}
-              whileTap={handState.isTracking ? { scale: 0.98 } : {}}
-            >
-              🎯 Interactive Calibration
-            </motion.button>
-          </div>
-        </motion.div>
-
-        {/* 3D Tracking HUD */}
-        {show3DTrackingHUD && (
-          <motion.div
-            className="absolute top-20 right-4 z-10"
-            initial={{ x: 50, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1.2 }}
-          >
-            <ThreeDTrackingHUD
+          {/* Enhanced Hand Visualization */}
+          {showEnhancedVisualization && (
+            <EnhancedHandVisualization
               handState={handState}
-              modeStatus={get3DModeStatus()}
-              isMinimized={trackingHUDMinimized}
-              onToggleMinimize={() => setTrackingHUDMinimized(!trackingHUDMinimized)}
+              canvasRef={sceneCanvasRef}
+              showConfidenceIndicators={true}
+              showHandSkeleton={true}
+              showGestureIndicator={true}
+              showQualityMetrics={false}
+              className="z-20"
             />
-          </motion.div>
-        )}
+          )}
 
-        {/* Instructions Panel */}
-        <motion.div
-          className="absolute bottom-4 left-4 z-10"
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 1.0 }}
-        >
-          <div className="card-compact space-y-2">
-            <h3 className="text-sm font-semibold text-accent-400 mb-3">Hand Tracking Guide</h3>
+          {/* Confidence Indicator */}
+          {showConfidenceIndicator && (
+            <ConfidenceIndicator
+              handState={handState}
+              qualityMetrics={handState.qualityMetrics}
+              adaptiveMapping={{
+                isActive: true,
+                isCalibrated: false,
+                boundaryViolations: 0,
+                latency: performance?.detectionLatency || 0
+              }}
+              position="top-right"
+              minimized={confidenceIndicatorMinimized}
+              onToggleMinimize={() => setConfidenceIndicatorMinimized(!confidenceIndicatorMinimized)}
+              className="z-30"
+            />
+          )}
 
-            {/* Hand Positioning Instructions */}
-            <motion.div
-              className="gesture-item mb-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="text-xs text-blue-300 mb-1">📍 Hand Position</div>
-              <div className="text-xs text-gray-300">Keep hand centered in camera view for best tracking</div>
-            </motion.div>
-
-            <h4 className="text-xs font-medium text-gray-400 mb-2">Gesture Controls</h4>
-            <motion.div
-              className="gesture-item"
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-              transition={{ duration: 0.2 }}
-            >
-              <span className="gesture-icon">✋</span>
-              <span className="gesture-text">Open Hand - Move Cube</span>
-            </motion.div>
-            <motion.div
-              className="gesture-item"
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-              transition={{ duration: 0.2 }}
-            >
-              <span className="gesture-icon">✊</span>
-              <span className="gesture-text">Fist - Grab Cube</span>
-            </motion.div>
-            <motion.div
-              className="gesture-item"
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-              transition={{ duration: 0.2 }}
-            >
-              <span className="gesture-icon">🤏</span>
-              <span className="gesture-text">Pinch - Scale Cube</span>
-            </motion.div>
-
-            {/* 3D Mode Instruction */}
-            {currentTrackingMode === TRACKING_MODES.MODE_3D && (
-              <motion.div
-                className="gesture-item"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ scale: 1.02, backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
-              >
-                <span className="gesture-icon">🎯</span>
-                <span className="gesture-text">3D Motion - Full Spatial Control</span>
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Enhanced Hand Visualization */}
-        {showEnhancedVisualization && (
-          <EnhancedHandVisualization
+          {/* Interactive Calibration Guide */}
+          <InteractiveCalibrationGuide
+            isActive={isInteractiveCalibrating}
             handState={handState}
-            canvasRef={sceneCanvasRef}
-            showConfidenceIndicators={true}
-            showHandSkeleton={true}
-            showGestureIndicator={true}
-            showQualityMetrics={false}
-            className="z-20"
+            onCalibrationPoint={handleCalibrationPoint}
+            onComplete={handleInteractiveCalibrationComplete}
+            onCancel={handleInteractiveCalibrationCancel}
+            className="z-40"
           />
-        )}
 
-        {/* Confidence Indicator */}
-        {showConfidenceIndicator && (
-          <ConfidenceIndicator
+          {/* Mobile UI */}
+          <MobileUI
             handState={handState}
-            qualityMetrics={handState.qualityMetrics}
-            adaptiveMapping={{
-              isActive: true,
-              isCalibrated: false,
-              boundaryViolations: 0,
-              latency: performance?.detectionLatency || 0
-            }}
-            position="top-right"
-            minimized={confidenceIndicatorMinimized}
-            onToggleMinimize={() => setConfidenceIndicatorMinimized(!confidenceIndicatorMinimized)}
-            className="z-30"
+            onTouchGesture={handleTouchGesture}
+            onCalibration={handleInteractiveCalibration}
+            onSettings={handleMobileSettings}
+            isMobile={isMobile}
+            orientation={deviceOrientation}
+            className="z-50"
           />
-        )}
 
-        {/* Interactive Calibration Guide */}
-        <InteractiveCalibrationGuide
-          isActive={isInteractiveCalibrating}
-          handState={handState}
-          onCalibrationPoint={handleCalibrationPoint}
-          onComplete={handleInteractiveCalibrationComplete}
-          onCancel={handleInteractiveCalibrationCancel}
-          className="z-40"
-        />
+          {/* Calibration Modal */}
+          <CalibrationModal
+            isOpen={showCalibrationModal}
+            onClose={() => setShowCalibrationModal(false)}
+            onComplete={handleCalibrationComplete}
+            handState={handState}
+            startCalibration={startCalibration}
+          />
 
-        {/* Mobile UI */}
-        <MobileUI
-          handState={handState}
-          onTouchGesture={handleTouchGesture}
-          onCalibration={handleInteractiveCalibration}
-          onSettings={handleMobileSettings}
-          isMobile={isMobile}
-          orientation={deviceOrientation}
-          className="z-50"
-        />
-
-        {/* Calibration Modal */}
-        <CalibrationModal
-          isOpen={showCalibrationModal}
-          onClose={() => setShowCalibrationModal(false)}
-          onComplete={handleCalibrationComplete}
-          handState={handState}
-          startCalibration={startCalibration}
-        />
-
-        {/* Game Controller */}
-        <GameController
-          handState={handState}
-          objectsInfo={objectsInfo}
-          selectedObject={selectedObject}
-          onGameStateChange={handleGameStateChange}
-        />
+          {/* Game Controller */}
+          <GameController
+            handState={handState}
+            objectsInfo={objectsInfo}
+            selectedObject={selectedObject}
+            onGameStateChange={handleGameStateChange}
+          />
         </motion.div>
       </ErrorBoundary>
     </ConfigProvider>
   );
 }
 
-export default App;
+

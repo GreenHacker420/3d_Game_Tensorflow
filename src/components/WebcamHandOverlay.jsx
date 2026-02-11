@@ -5,9 +5,9 @@ import { coordinateDebugger, debugHandAlignment } from '../utils/coordinateDebug
  * Webcam Hand Overlay Component
  * Draws hand landmarks and connections directly on the webcam feed
  */
-const WebcamHandOverlay = ({ 
-  handState, 
-  webcamRef, 
+const WebcamHandOverlay = ({
+  handState,
+  webcamRef,
   className = '',
   showLandmarks = true,
   showConnections = true,
@@ -109,9 +109,7 @@ const WebcamHandOverlay = ({
         canvasWidth: canvas.width,
         canvasHeight: canvas.height,
         videoWidth,
-        videoHeight,
-        displayWidth,
-        displayHeight
+        videoHeight
       });
 
       // Test coordinate transformation with known values
@@ -244,14 +242,14 @@ const WebcamHandOverlay = ({
    */
   useEffect(() => {
     let animationId;
-    
+
     const animate = () => {
       drawHandLandmarks();
       animationId = requestAnimationFrame(animate);
     };
-    
+
     animate();
-    
+
     return () => {
       if (animationId) {
         cancelAnimationFrame(animationId);
