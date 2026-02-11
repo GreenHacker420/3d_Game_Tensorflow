@@ -1,26 +1,10 @@
 import React from 'react'
-import { createRoot } from 'react-dom/client'
-import { ConfigProvider, theme } from 'antd'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
 import './index.css'
-import App from './App'
-import ErrorBoundary from './components/ErrorBoundary'
-import antdTheme from './config/antdTheme'
 
-const container = document.getElementById('root')
-const root = createRoot(container)
-
-root.render(
-  <React.StrictMode>
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: antdTheme.token,
-        components: antdTheme.components,
-      }}
-    >
-      <ErrorBoundary>
+ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
         <App />
-      </ErrorBoundary>
-    </ConfigProvider>
-  </React.StrictMode>
+    </React.StrictMode>,
 )
